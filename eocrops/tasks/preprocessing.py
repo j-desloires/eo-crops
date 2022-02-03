@@ -17,8 +17,8 @@ class PolygonMask(EOTask) :
 
     Parameters
     ----------
-    shapefile : TYPE GeoDataFrame
-        Input shapefile read as GeoDataFrame, each observation represents a polygon (e.g. fields)
+    geodataframe : TYPE GeoDataFrame
+        Input geodataframe read as GeoDataFrame, each observation represents a polygon (e.g. fields)
     new_feature_name : TYPE string
         Name of the new features which contains clustering_task predictions
 
@@ -27,33 +27,32 @@ class PolygonMask(EOTask) :
     EOPatch
     """
 
-    def __init__(self, shapefile) :
-        self.shapefile = shapefile
-
+    def __init__(self, geodataframe) :
+        self.geodataframe = geodataframe
 
     def execute(self, eopatch):
 
         # Check CRS and transform into UTM
-        self.shapefile = utils.check_crs(self.shapefile)
+        self.geodataframe = utils.check_crs(self.geodataframe)
 
         # Get an ID for each polygon from the input shapefile
-        self.shapefile['FIELD_ID'] = list(range(1, self.shapefile.shape[0]+1))
+        self.geodataframe['FIELD_ID'] = list(range(1, self.geodataframe.shape[0] + 1))
 
-        if self.shapefile.shape[0]>1 :
-            bbox = self.shapefile.geometry.total_bounds
-            polygon_mask = sentinelhub.BBox(bbox=[(bbox[0], bbox[1]), (bbox[2], bbox[3])], crs=self.shapefile.crs)
-            self.shapefile['MASK'] = polygon_mask.geometry
+        if self.geodataframe.shape[0]>1 :
+            bbox = self.geodataframe.geometry.total_bounds
+            polygon_mask = sentinelhub.BBox(bbox=[(bbox[0], bbox[1]), (bbox[2], bbox[3])], crs=self.geodataframe.crs)
+            self.geodataframe['MASK'] = polygon_mask.geometry
         else :
-            self.shapefile['MASK'] = self.shapefile['geometry']
+            self.geodataframe['MASK'] = self.geodataframe['geometry']
 
-        self.shapefile['polygon_bool'] = True
+        self.geodataframe['polygon_bool'] = True
 
-        rasterization_task = VectorToRasterTask(self.shapefile, (FeatureType.DATA_TIMELESS, "FIELD_ID"),
-                                            values_column="FIELD_ID", raster_shape=(FeatureType.MASK, 'IS_DATA'),
-                                            raster_dtype=np.uint16)
+        rasterization_task = VectorToRasterTask(self.geodataframe, (FeatureType.DATA_TIMELESS, "FIELD_ID"),
+                                                values_column="FIELD_ID", raster_shape=(FeatureType.MASK, 'IS_DATA'),
+                                                raster_dtype=np.uint16)
         eopatch = rasterization_task.execute(eopatch)
 
-        rasterization_task = VectorToRasterTask(self.shapefile,
+        rasterization_task = VectorToRasterTask(self.geodataframe,
                                                 (FeatureType.MASK_TIMELESS, "MASK"),
                                                 values_column="polygon_bool", raster_shape=(FeatureType.MASK, 'IS_DATA'),
                                                 raster_dtype=np.uint16)
