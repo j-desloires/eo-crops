@@ -1,0 +1,27 @@
+Earth observations for crop monitoring. This is a small python module that gathers awesome functionalities from Sentinelhub and eo-learn python package.
+
+# Installation
+
+To install the package, you need first to clone the git repository into a desired folder
+
+```bash
+git clone git@github.com:j-desloires/eo-crops.git
+```
+
+Then, open Anaconda prompt and create the environment from environment.yml
+
+```
+cd eo-crops
+conda env create -f environment.yml
+conda activate eo-crops
+pip install .
+```
+
+
+If you want to run a jupyter notebook, you need to install jupyter on the environment. Then, you will be able to select the kernel.
+
+```
+conda install -c anaconda ipykernel -y
+python -m ipykernel install --user --name=eo-crops
+jupyter notebook
+```
