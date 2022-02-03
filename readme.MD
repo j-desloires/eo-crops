@@ -26,8 +26,8 @@ python -m ipykernel install --user --name=eo-crops
 jupyter notebook
 ```
 
-#Dependencies
+# Dependencies
 
 You should have OrfeoToolBox installed (https://www.orfeo-toolbox.org/CookBook/Installation.html) if you would like to do apply pansharpening and multitemporal speckle filtering. 
 
-Also, you should have a Sentinelhub account, which can be sponsored using Network of Sponsorship program https://www.sentinel-hub.com/Network-of-Resources/
+Also, you should have a Sentinelhub account with credentials. The latter can be sponsored using Network of Sponsorship program https://www.sentinel-hub.com/Network-of-Resources/.
