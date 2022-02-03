@@ -37,7 +37,7 @@ class PolygonMask(EOTask) :
         self.shapefile = utils.check_crs(self.shapefile)
 
         # Get an ID for each polygon from the input shapefile
-        self.shapefile['FIELD_ID'] = [k for k in range(1, self.shapefile.shape[0]+1)]
+        self.shapefile['FIELD_ID'] = list(range(1, self.shapefile.shape[0]+1))
 
         if self.shapefile.shape[0]>1 :
             bbox = self.shapefile.geometry.total_bounds
@@ -117,7 +117,6 @@ class MaskPixels(EOTask):
 
 
 
-
 class InterpolateFeatures(EOTask):
     def __init__(self, resampled_range, algorithm = 'linear', copy_features = None,
                  features = None):
@@ -153,6 +152,7 @@ class InterpolateFeatures(EOTask):
     def execute(self, eopatch):
 
         '''Gap filling after data extraction, very useful if did not include it in the data extraction workflow'''
+
         dico = {}
         mask_feature = None
         if 'VALID_DATA' in list(eopatch.mask.keys()):
