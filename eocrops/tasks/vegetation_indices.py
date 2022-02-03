@@ -34,7 +34,7 @@ class VegetationIndicesVHRS(EOTask):
 
 class BiophysicalIndices:
     def __init__(self,B03, B04,B05, B06, B07,B8A,B11, B12, viewZenithMean, sunZenithAngles, viewAzimuthMean,sunAzimuthAngles):
-
+        '''EOPatch should contains only 10 and 20m bands + illumination properties, as in eocrops.input.sentinel2'''
         self.B03 = B03
         self.B04 = B04
         self.B05 = B05
