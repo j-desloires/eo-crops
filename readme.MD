@@ -1,4 +1,6 @@
-Earth observations for crop monitoring. This is a small python module that gathers awesome functionalities from Sentinelhub, eo-learn python package and OrfeoToolBox.
+Earth observations for crop monitoring. 
+
+Small python module that gathers awesome functionalities from Sentinelhub, eo-learn python package and OrfeoToolBo for basics download and data processing.
 
 # Installation
 
