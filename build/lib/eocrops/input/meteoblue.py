@@ -196,7 +196,7 @@ class CEHubFormatting:
         df_cehub['timestamp'] = df_cehub['timestamp'].apply(lambda x: _convert_date(x))
 
         dict_year = {}
-        for year in df_cehub['year'].drop_duplicates().values:
+        for year in df_cehub[self.year_column].drop_duplicates().values:
             dict_year[year] = self._get_resampled_periods(year)
 
         periods = pd.DataFrame(dict_year)
@@ -314,11 +314,16 @@ class CEHubFormatting:
         '''
         self._apply_convert_doy('planting_date')
 
-        if stat not in ['mean', 'min', 'max', 'sum']:
-            raise ValueError("Descriptive statistic must be 'mean', 'min', 'max' or 'sum' ")
+        if stat not in ['mean', 'min', 'max', 'sum', 'cumsum']:
+            raise ValueError("Descriptive statistic must be 'mean', 'min', 'max', 'sum' or 'cumsum'")
 
         init_weather = self._init_df(df=df_weather.copy())
-        df_stats_mean = self._get_descriptive_period(init_weather, stat = stat)
+
+        if stat != 'cumsum':
+            df_stats_mean = self._get_descriptive_period(init_weather, stat = stat)
+        else:
+            df_stats_mean = self._get_cumulated_period(init_weather)
+
         output = self._prepare_output_file(df_stats_mean, stat = stat)
 
         output.columns = [''.join(k.split('value-')) for k in output.columns]

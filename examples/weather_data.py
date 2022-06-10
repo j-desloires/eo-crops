@@ -1,7 +1,9 @@
 import os
 import pandas as pd
+from importlib import reload
 
 import eocrops
+eocrops = reload(eocrops)
 from eocrops.input.meteoblue import CEHUBExtraction, CEHubFormatting
 
 os.getcwd()
@@ -57,6 +59,24 @@ query = [{"domain": "ERA5", "gapFillDomain": "NEMS4",
 
 
 df_output = pipeline_cehub.execute(query = query,  time_interval = ('01-01', '12-31'))
+df_output.to_csv('./examples/layers/mean_meteoblue.csv', index = False)
+
+df_output = pd.read_csv('./examples/layers/mean_meteoblue.csv', skiprows=1)
+
+#####################################################################################################
+#Reformating data
+input_file_mean_agg['planting_date'] = 2
+input_file_mean_agg['havest_date_column'] = 364
 
 
+pipeline_refactor = CEHubFormatting(
+    input_file = input_file_mean_agg,
+    id_column = 'Id_location',
+    planting_date_column = 'planting_date',
+    havest_date_column = 'havest_date_column',
+    year_column = 'Annee',
+    resample_range=('-01-01', '-12-31', 1)
+)
+
+df_mean = pipeline_refactor.execute(df_output, stat='mean')
 

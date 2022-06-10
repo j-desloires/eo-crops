@@ -196,7 +196,7 @@ class CEHubFormatting:
         df_cehub['timestamp'] = df_cehub['timestamp'].apply(lambda x: _convert_date(x))
 
         dict_year = {}
-        for year in df_cehub['year'].drop_duplicates().values:
+        for year in df_cehub[self.year_column].drop_duplicates().values:
             dict_year[year] = self._get_resampled_periods(year)
 
         periods = pd.DataFrame(dict_year)
