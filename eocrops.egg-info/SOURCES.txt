@@ -5,6 +5,7 @@ eocrops.egg-info/SOURCES.txt
 eocrops.egg-info/dependency_links.txt
 eocrops.egg-info/top_level.txt
 eocrops/input/__init__.py
+eocrops/input/meteoblue.py
 eocrops/input/sentinel1.py
 eocrops/input/sentinel2.py
 eocrops/input/utils_sh.py

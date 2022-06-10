@@ -1,1 +1,0 @@
-from eocrops.tasks.vegetation_indices import VegetationIndicesVHRS
