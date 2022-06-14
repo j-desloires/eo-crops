@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+eocrops/__pycache__/
 *.py[cod]
 *$py.class
 
@@ -24,13 +24,7 @@ wheels/
 
 # IDE config
 .idea/
-.vscode/
 
-# Files that Sphinx generates
-/docs/source/examples
-/docs/source/markdowns
-/docs/source/eotasks.rst
-/docs/source/reference/*.rst
 
 # pytest
 .pytest_cache/
