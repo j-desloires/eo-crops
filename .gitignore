@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-eocrops/__pycache__/
+__pycache__/
 *.py[cod]
 *$py.class
 
@@ -23,7 +23,8 @@ wheels/
 *.egg
 
 # IDE config
-.idea/
+.idea
+build/lib/eocrops
 
 
 # pytest
