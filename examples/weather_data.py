@@ -4,7 +4,7 @@ from eocrops.input.meteoblue import CEHUBExtraction, CEHubFormatting
 
 #################################################################################
 
-input_file = pd.read_csv('./examples/layers/Data-Points-Valid-Burkina-MeteoBlue.csv')
+input_file = pd.read_csv('./examples/layers/burkina_dataframe.csv')
 input_file['coordinates'] = list(
     zip(input_file['Longitude'], input_file['Latitude'])
 )
