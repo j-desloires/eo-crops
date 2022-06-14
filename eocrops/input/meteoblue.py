@@ -108,10 +108,10 @@ class CEHUBExtraction:
 
 class CEHubFormatting:
     def __init__(self,
-                input_file,
-                id_column,
-                 planting_date_column, havest_date_column, year_column,
-                resample_range=('-01-01', '-12-31', 1)):
+                 input_file,
+                 id_column,
+                 year_column, resample_range=('-01-01', '-12-31', 1),
+                 planting_date_column = None, havest_date_column = None):
         '''
         :param input_file (pd.DataFrame) : input file with fields in-situ data
         :param id_column (str): Name of the column that contains ids of the fields to merge with CEHub data
@@ -127,11 +127,13 @@ class CEHubFormatting:
         self.havest_date_column = havest_date_column
         self.year_column = year_column
         self.resample_range = resample_range
-        self.input_file = input_file[[self.id_column, self.planting_date_column,
-                                      self.havest_date_column, self.year_column]]. \
-            drop_duplicates()
-        self.input_file = self.input_file.rename(
-            columns={self.planting_date_column: 'planting_date', self.havest_date_column: 'harvest_date'})
+        self.input_file = input_file[[self.id_column, self.year_column]].drop_duplicates()
+
+        if self.planting_date_column is not None and self.havest_date_column is not None:
+            self.input_file = self.input_file.rename(
+                columns={self.planting_date_column: 'planting_date'})
+            self._apply_convert_doy('planting_date')
+
 
     def _get_descriptive_period(self, df, stat='mean'):
         '''
@@ -140,8 +142,8 @@ class CEHubFormatting:
         dict_stats = dict(mean=np.nanmean, max=np.nanmax, min=np.nanmin)
 
         df['value'] = df['value'].astype('float32')
-        df_agg = df[['variable', 'period', 'location', 'value']]. \
-            groupby(['variable', 'period', 'location']).agg(dict_stats[stat])
+        df_agg = df[['variable', 'period', 'location', 'value', self.year_column]]. \
+            groupby(['variable', 'period', 'location', self.year_column]).agg(dict_stats[stat])
         df_agg.reset_index(inplace=True)
         df_agg = df_agg.rename(columns={'value': stat + '_value',
                                         'location': self.id_column})
@@ -152,18 +154,18 @@ class CEHubFormatting:
         Compute the cumulative sum given period.
         '''
 
-        df_cum = []
+        df_cum = pd.DataFrame()
         for var in df.variable.unique():
             df_subset = df[df.variable == var]
-            df_agg = df_subset[[self.id_column, 'period', 'variable', 'value']]. \
-                groupby(['key', 'variable', 'period']).sum()
+            df_agg = df_subset[['location', 'period', 'variable', 'value', self.year_column]]. \
+                groupby(['location', self.year_column, 'variable', 'period']).sum()
             df_agg = df_agg.groupby(level=0).cumsum().reset_index()
             df_agg = df_agg.rename(columns={'value': 'sum_value'})
-            df_cum.append(df_agg)
+            df_cum = df_cum.append(df_agg)
 
-        return pd.concat(df_cum, axis=0)
+        return df_cum
 
-    def _get_resampled_periods(self, year):
+    def _get_resampled_periods(self, year = '2021'):
         '''
         Get the resampled periods from the resample range
         '''
@@ -180,6 +182,17 @@ class CEHubFormatting:
             days.append(days[-1] + step)
         return days
 
+
+    def _format_periods(self, periods):
+        df_resampled = pd.melt(periods, id_vars='period'). \
+            rename(columns={'value': 'timestamp', 'variable': self.year_column})
+
+        # Left join periods to the original dataframe
+        df_resampled['timestamp'] = [str(k) for k in df_resampled['timestamp'].values]
+        df_resampled['timestamp'] = [np.datetime64(str(year) + '-' + '-'.join(k.split('-')[1:]))
+                                     for year, k in zip(df_resampled[self.year_column], df_resampled['timestamp'])]
+        return df_resampled
+
     def _get_periods(self, df_cehub_):
         '''
         Assign the periods to the file obtained through CEHub
@@ -192,21 +205,23 @@ class CEHubFormatting:
 
         # Assign period ids w.r.t the date from the dataframe
         df_cehub['timestamp'] = [str(k) for k in df_cehub['timestamp']]
+
+        #Assign dates to a single year to retrieve periods
         df_cehub[self.year_column] = df_cehub['timestamp'].apply(lambda x: _get_year(x))
         df_cehub['timestamp'] = df_cehub['timestamp'].apply(lambda x: _convert_date(x))
 
         dict_year = {}
         for year in df_cehub[self.year_column].drop_duplicates().values:
-            dict_year[year] = self._get_resampled_periods(year)
+            dict_year[year] = self._get_resampled_periods()
 
         periods = pd.DataFrame(dict_year)
 
         periods = periods.reset_index().rename(columns={'index': 'period'})
-        df_resampled = pd.melt(periods, id_vars='period'). \
-            rename(columns={'value': 'timestamp', 'variable': self.year_column})
+        df_resampled = self._format_periods(periods)
 
-        # Left join periods to the original dataframe
-        df = pd.merge(df_resampled, df_cehub, on=['timestamp', self.year_column], how='right')
+        df = pd.merge(df_resampled, df_cehub,
+                      on=['timestamp', self.year_column],
+                      how='right')
 
         fill_nas = df[['period', 'location']].groupby('location').apply(
             lambda group: group.interpolate(method='pad', limit=self.resample_range[-1]))
@@ -249,37 +264,40 @@ class CEHubFormatting:
         df = df.drop_duplicates(subset=['location', 'timestamp', 'variable'])
 
         df = df[df.location.isin(self.input_file[self.id_column].unique())]
-        df, periods_df = self._get_periods(df)
-
-        periods_sowing = self._add_growing_stage(periods_df, feature='planting_date')
-
-        df = pd.merge(df[['period', 'timestamp', 'location', 'variable', 'value']],
-                      periods_sowing,
-                      left_on='location',
-                      right_on= self.id_column,
-                      how='left')
-
+        df, periods_df = self._get_periods(df_cehub_=df)
         df['value'] = df['value'].astype('float32')
-        # Observations before planting date are assigned to np.nan
-        df.loc[df.timestamp < df.planting_date, ['value']] = np.nan
+
+        if self.planting_date_column is not None:
+            periods_sowing = self._add_growing_stage(periods_df, feature='planting_date')
+            df = pd.merge(df[['period', 'timestamp', 'location', 'variable', 'value']],
+                          periods_sowing,
+                          left_on='location',
+                          right_on= self.id_column,
+                          how='left')
+
+            # Observations before planting date are assigned to np.nan
+            df.loc[df.timestamp < df.planting_date, ['value']] = np.nan
 
         return df
 
-    @staticmethod
-    def _prepare_output_file(df_stats, stat='mean'):
+    def _prepare_output_file(self, df_stats, stat='mean'):
         '''
         Prepare output dataframe with associated statistics over the periods.
         The output will have the name of the feature and its corresponding period (tuple)
         '''
         df_pivot = pd.pivot_table(df_stats,
                                   values=[stat + '_value'],
-                                  index=['key'],
+                                  index=[self.id_column, self.year_column],
                                   columns=['variable', 'period'], dropna=False)
 
         df_pivot.reset_index(inplace=True)
         df_pivot.columns = ['-'.join([str(x) for x in col]).strip() for col in df_pivot.columns.values]
-        df_pivot = df_pivot.rename(columns={'key--': 'key'})
-        df_pivot = df_pivot.sort_values(by=['key']).reset_index(drop=True)
+        df_pivot = df_pivot.rename(
+            columns={
+                self.id_column + '--': self.id_column,
+                self.year_column + '--': self.year_column}
+        )
+        df_pivot = df_pivot.sort_values(by=[self.id_column, self.year_column]).reset_index(drop=True)
         return df_pivot
 
 
@@ -305,14 +323,13 @@ class CEHubFormatting:
         return diff_weather
 
 
-    def execute(self, df_weather, stat='mean'):
+    def execute(self, df_weather, stat='mean', return_pivot = False):
         '''
         Execute the workflow to get the dataframe aggregated into periods from CEHub data
         :param df_weather (pd.DataFrame) : cehub dataframe with stat as daily descriptive statistics
         :return:
             pd.DataFrame with mean, min, max, sum aggregated into periods defined w.r.t the resample_range
         '''
-        self._apply_convert_doy('planting_date')
 
         if stat not in ['mean', 'min', 'max', 'sum', 'cumsum']:
             raise ValueError("Descriptive statistic must be 'mean', 'min', 'max', 'sum' or 'cumsum'")
@@ -320,14 +337,16 @@ class CEHubFormatting:
         init_weather = self._init_df(df=df_weather.copy())
 
         if stat != 'cumsum':
-            df_stats_mean = self._get_descriptive_period(init_weather, stat = stat)
+            df_stats = self._get_descriptive_period(df = init_weather, stat = stat)
         else:
-            df_stats_mean = self._get_cumulated_period(init_weather)
+            df_stats = self._get_cumulated_period(df = init_weather)
 
-        output = self._prepare_output_file(df_stats_mean, stat = stat)
+        df_stats = df_stats.sort_values(by=[self.id_column, self.year_column, "variable"])
 
-        output.columns = [''.join(k.split('value-')) for k in output.columns]
-        output.columns = [tuple(k.split('-')) if k != 'key' else k for k in output.columns]
-        output.columns = [(k[0], float(k[1])) if k != 'key' else k for k in output.columns]
+        if return_pivot:
+            output = self._prepare_output_file(df_stats=df_stats, stat=stat)
+            output.columns = [''.join(k.split('value-')) for k in output.columns]
+            output.columns = [tuple(k.split('-')) if k != self.id_column else k for k in output.columns]
+            output.columns = [(k[0], float(k[1])) if k != self.id_column else k for k in output.columns]
 
         return output
