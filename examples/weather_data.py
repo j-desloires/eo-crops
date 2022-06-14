@@ -2,8 +2,8 @@
 import pandas as pd
 from eocrops.input.meteoblue import CEHUBExtraction, CEHubFormatting
 
-#################################################################################
-
+###############################################################################################################
+#Read the file
 input_file = pd.read_csv('./examples/layers/burkina_dataframe.csv')
 input_file['coordinates'] = list(
     zip(input_file['Longitude'], input_file['Latitude'])
@@ -12,6 +12,10 @@ input_file['coordinates'] = list(
 input_file['Id_location'] = input_file['Id_location'].astype(str)
 input_file = input_file[input_file['Aggregation'].isin(['mean'])]
 input_file[['Id_location', 'Annee']].drop_duplicates().shape
+
+###############################################################################################################
+#Step 1 : Define the query with a backbone (=units, jobs parameters) and your input file features (locations,..)
+###############################################################################################################
 
 queryBackbone = {
         "units": {
@@ -57,12 +61,13 @@ query = [{"domain": "ERA5", "gapFillDomain": "NEMS4",
           ],
 }]
 
-
 df_output = pipeline_cehub.execute(query = query,  time_interval = ('01-01', '12-31'))
 df_output.to_csv('./examples/layers/mean_meteoblue.csv', index = False)
 
+###############################################################################################################
+#Step 2 : reformat file given a resampling range (e.g. every 8 days from the 1st of January into 31 of December
+###############################################################################################################
 
-#####################################################################################################
 df_output = pd.read_csv('./examples/layers/mean_meteoblue.csv', skiprows=1)
 
 
