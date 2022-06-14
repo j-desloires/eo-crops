@@ -73,7 +73,4 @@ pipeline_refactor = CEHubFormatting(
     resample_range=('-01-01', '-12-31', 1)
 )
 
-self = pipeline_refactor
-
-df_mean = pipeline_refactor.execute(df_weather=df_output, stat='mean')
-list(df_mean.columns)
+df_mean = pipeline_refactor.execute(df_weather=df_output, stat='mean', return_pivot=False)
