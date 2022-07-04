@@ -48,7 +48,6 @@ class EOPatchDataset:
         files.sort()
         self.dataset = tf.data.Dataset.from_tensor_slices(files)
         self.vector_dataset = tf.data.Dataset.from_tensor_slices(files)
-        #path = files[0]
 
     @staticmethod
     def _interpolate_feature(eopatch, feature, mask_feature,  **kwargs):
