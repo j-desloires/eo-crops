@@ -10,7 +10,7 @@ root_dir_or_list = '/home/johann/Documents/EOPatch samples'
 dict_df = pd.DataFrame(
     dict(
         labels = [0],
-        path = [os.path.join(root_dir_or_list, k) for k in os.listdir(root_dir_or_list)]
+        path = [os.path.join(root_dir_or_list, '726B-JC7987WJFX6011GR-2021_S2_L2A')]
     )
 )
 
@@ -38,11 +38,9 @@ pipeline_eopatch_tfds = data_loader.EOPatchDataset(
     function=np.nanmedian
 )
 
-self = pipeline_eopatch_tfds
+
 npy_eopatch = pipeline_eopatch_tfds.get_eopatch_tfds(algorithm='linear')
+
 npy_labels = pipeline_eopatch_tfds.get_vector_tfds(vector_data=dict_df,
                                                    features_list=feature_vector,
                                                    column_path='path')
-npy_labels.shape
-
-[feat[1] for feat in feature_vector]
