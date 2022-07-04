@@ -6,4 +6,4 @@ scipy>=0.19
 matplotlib>=2.2.2
 seaborn>=0.9.0
 aoihttp
-
+protobuf==3.20.0
