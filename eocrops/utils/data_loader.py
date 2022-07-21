@@ -1,4 +1,4 @@
-from eolearn.core import EOPatch, FeatureType, EOTask
+from eolearn.core import EOPatch, FeatureType
 
 import glob
 import numpy as np
@@ -6,26 +6,30 @@ import numpy as np
 import os
 
 from eolearn.geometry import ErosionTask
-import eocrops.utils.utils as utils
 import eocrops.tasks.preprocessing as preprocessing
 import copy
 ###########################################################################################################
 
 class EOPatchDataset:
     def __init__(self,
-                 root_dir_or_list, features_data,
-                 suffix='S2_L2A', resampling = None,
+                 root_dir, features_data,
+                 suffix='', resampling = None,
                  function=np.nanmedian):
-        '''
-
-        '''
+        """
+        root_dir (str) : root path where EOPatch are saved
+        features_data (list of tuples) : features to aggregate in the dataset
+        suffix (str) : suffix of the EOPatch file names to read only a subset of EOPatch (e.g. '_S2'). This is very useful if you have several data sources in the same root_dir.
+        resampling (dict) : resampling period to make EOPatch at the same time scale and timely comparables (e.g. 8-days period)
+        function (np.functon) : function to aggegate pixels not masked into a single time series
+        """
 
         import tensorflow as tf
         import tensorflow_datasets as tfds
         global tf
         global tfds
 
-        self.root_dir_or_list = root_dir_or_list
+
+        self.root_dir = root_dir
         self.features_data = features_data
         self.suffix = suffix
         self.mask = (FeatureType.MASK_TIMELESS, 'MASK')
@@ -41,16 +45,22 @@ class EOPatchDataset:
             self.AUTOTUNE = tf.data.experimental.AUTOTUNE
 
     def _instance_tf_ds(self):
-        file_pattern = os.path.join(self.root_dir_or_list, '*_' + self.suffix)
+        '''
+        initalize tf.data.Dataset w.r.t the file names in self.root_dir_or_list
+        '''
+        file_pattern = os.path.join(self.root_dir, '*' + self.suffix)
         files = glob.glob(file_pattern)
         if len(files) == 0:
-            raise ValueError('No file in the root directory ' + self.root_dir_or_list + " ending with " + self.suffix)
+            raise ValueError('No file in the root directory ' + self.root_dir + " ending with " + self.suffix)
         files.sort()
         self.dataset = tf.data.Dataset.from_tensor_slices(files)
         self.vector_dataset = tf.data.Dataset.from_tensor_slices(files)
 
     @staticmethod
     def _interpolate_feature(eopatch, feature, mask_feature,  **kwargs):
+        '''
+        Perform gapfilling over a new time window or not.
+        '''
         kwargs['features'] = [feature]
         interp = preprocessing.InterpolateFeatures( **kwargs)
         eopatch = interp.execute(eopatch, mask_feature)
@@ -61,7 +71,6 @@ class EOPatchDataset:
                              copy_features,
                              algorithm = 'linear',
                              mask_feature=None):
-
         '''Gap filling after data extraction, very useful if did not include it in the data extraction workflow'''
         kwargs = dict(copy_features=copy_features,
                       resampled_range=resampled_range,
@@ -159,6 +168,13 @@ class EOPatchDataset:
 
 
     def get_eopatch_tfds(self, algorithm = 'linear'):
+        '''
+        Aggregate all the EOPatch files into a single 3D array, where each observation is summarized muiltivariate time series (e.g. median NDVI and NDWI) of one EOPatch
+
+        Parameters
+        ----------
+        algorithm (str): name of the algorithm for gapfilling (linear or cubic)
+        '''
 
         self._instance_tf_ds()
         ds_numpy = self.dataset.map(lambda x : self._read_patch(path = x, algorithm=algorithm),
@@ -167,6 +183,9 @@ class EOPatchDataset:
         return self._format_feature(out_feature)
 
     def get_vector_tfds(self, vector_data, features_list, column_path):
+        '''
+        Get ground truth data from a given dataframe into a 2D array. Each observation will match with the aggregation of EOPatch
+        '''
 
         self._instance_tf_ds()
         out_labels = list(self.vector_dataset.map(

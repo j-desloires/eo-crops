@@ -58,7 +58,7 @@ class AddValidDataCoverage(EOTask) :
 class SentinelHubValidData :
     """
     Combine Sen2Cor's classification map with `IS_DATA` to define a `VALID_DATA_SH` mask
-    The sentinel_hub's cloud mask is asumed to be found in eopatch.mask['CLM']
+    The sentinel_hub's cloud mask is assumed to be found in eopatch.mask['CLM']
     """
 
     def __call__(self, eopatch) :
@@ -78,13 +78,12 @@ class CloudMaskS2L2A(EOTask) :
 class CloudMaskFromCLM(EOTask) :
     """
     The tasks recognize clouds from Sentinel Scene Layers (SCL) obtained from Sen2Corr
-    NDI = (A-B)/(A+B).
     """
 
     def execute(self, eopatch) :
 
-        CLM = eopatch.get_feature(FeatureType.MASK, 'CLM')
-        cloudy_f = list(CLM.flatten())
+        cloud_mask_ = eopatch.get_feature(FeatureType.MASK, 'CLM')
+        cloud_mask_flatten = list(cloud_mask_.flatten())
 
         def return_na(x) :
             if x in [1] :  # [3, 4] :
@@ -92,11 +91,11 @@ class CloudMaskFromCLM(EOTask) :
             else :
                 return False
 
-        g = np.array(list(map(lambda x : return_na(x), cloudy_f)))
-        g = g.reshape(CLM.shape[0], CLM.shape[1], CLM.shape[2])
-        eopatch.add_feature(FeatureType.MASK, "IS_DATA", (1-g[..., np.newaxis]).astype(bool))
-        eopatch.add_feature(FeatureType.MASK, "CLM", g[..., np.newaxis])
-        eopatch.add_feature(FeatureType.MASK, "VALID_DATA", (1-g[..., np.newaxis]).astype(bool))
+        cloud_masked = np.array(list(map(lambda x : return_na(x), cloud_mask_)))
+        cloud_masked = cloud_masked.reshape(cloud_mask_flatten.shape[0], cloud_mask_flatten.shape[1], cloud_mask_flatten.shape[2])
+        eopatch.add_feature(FeatureType.MASK, "IS_DATA", (1-cloud_masked[..., np.newaxis]).astype(bool))
+        eopatch.add_feature(FeatureType.MASK, "CLM", cloud_masked[..., np.newaxis])
+        eopatch.add_feature(FeatureType.MASK, "VALID_DATA", (1-cloud_masked[..., np.newaxis]).astype(bool))
 
         return eopatch
 
@@ -117,7 +116,8 @@ class CountValid(EOTask) :
 
 
 class ValidDataCoveragePredicate :
-    ''' Keep an image only if below % of non contaminated pixels
+    '''
+    Keep an image only if below % of non contaminated pixels
     Inputs :
         - threshold (float) : upper bound of percentage of pixel predicted as cloudy
     '''
@@ -130,7 +130,8 @@ class ValidDataCoveragePredicate :
 
 
 class EmptyTask(EOTask) :
-    '''This task does not make any change. It is just to avoid to duplicate the LinearWorflow with if/else
+    '''
+    This task does not make any change. It is just to avoid to duplicate the LinearWorflow with if/else
     For example, saving a EOPatch in the workflow would depend if the user specify a path in the parameters of the function workflow
     '''
 
