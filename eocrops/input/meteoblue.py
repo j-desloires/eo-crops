@@ -10,7 +10,7 @@ import numpy as np
 import datetime
 
 
-class MeteoBlueBDownload:
+class WeatherDownload:
     def __init__(self, api_key, queryBackbone, ids, coordinates, years, loop =  asyncio.new_event_loop()):
         '''
 
@@ -106,7 +106,7 @@ class MeteoBlueBDownload:
 
 #############################################################################################
 
-class MeteoBlueToDF:
+class WeatherPostprocess:
     def __init__(self,
                  input_file,
                  id_column,

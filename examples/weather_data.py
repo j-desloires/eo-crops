@@ -1,6 +1,6 @@
 
 import pandas as pd
-from eocrops.input.meteoblue import MeteoBlueBDownload, MeteoBlueToDF
+from eocrops.input.meteoblue import WeatherDownload, WeatherPostprocess
 
 ###############################################################################################################
 #Read the file
@@ -37,11 +37,11 @@ queryBackbone = {
 }
 
 
-pipeline_cehub = MeteoBlueBDownload(api_key ='',
-                                    queryBackbone = queryBackbone,
-                                    ids = input_file['Id_location'].values,
-                                    coordinates=  input_file['coordinates'].values,
-                                    years = input_file['Annee'].values)
+pipeline_cehub = WeatherDownload(api_key ='',
+                                 queryBackbone = queryBackbone,
+                                 ids = input_file['Id_location'].values,
+                                 coordinates=  input_file['coordinates'].values,
+                                 years = input_file['Annee'].values)
 
 stat = 'mean'
 
@@ -70,7 +70,7 @@ df_output.to_csv('./examples/layers/mean_meteoblue.csv', index = False)
 df_output = pd.read_csv('./examples/layers/mean_meteoblue.csv', skiprows=1)
 
 
-pipeline_refactor = MeteoBlueToDF(
+pipeline_refactor = WeatherPostprocess(
     input_file = input_file,
     id_column = 'Id_location',
     year_column = 'Annee',
