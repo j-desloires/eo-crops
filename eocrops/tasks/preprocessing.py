@@ -9,6 +9,7 @@ from eolearn.geometry.morphology import ErosionTask
 
 from scipy.optimize import curve_fit
 import numpy as np
+from eolearn.core import RemoveFeatureTask
 
 class PolygonMask(EOTask) :
     """
@@ -118,20 +119,24 @@ class MaskPixels(EOTask):
 
 
 class InterpolateFeatures(EOTask):
-    def __init__(self, resampled_range, features,
-                 algorithm = 'linear', copy_features = None):
+    def __init__(self, resampled_range,
+                 features = None,
+                 algorithm = 'linear',
+                 copy_features = None):
         self.resampled_range = resampled_range
         self.features = features
         self.algorithm = algorithm
         self.copy_features = copy_features
 
-    def _interpolate_feature(self, eopatch, feature, mask_feature):
+    def _interpolate_feature(self, eopatch, features, mask_feature):
 
         kwargs = dict(mask_feature=mask_feature,
-                      copy_features=self.copy_features,
                       resample_range=self.resampled_range,
-                      feature =  [(FeatureType.DATA, feature)],
+                      feature = features,
                       bounds_error=False)
+
+        if self.resampled_range is not None:
+            kwargs['copy_features'] = self.copy_features
 
         if self.algorithm=='linear' :
             interp = LinearInterpolationTask(
@@ -150,23 +155,28 @@ class InterpolateFeatures(EOTask):
 
         '''Gap filling after data extraction, very useful if did not include it in the data extraction workflow'''
 
-        dico = {}
+
         mask_feature = None
         if 'VALID_DATA' in list(eopatch.mask.keys()):
             mask_feature = (FeatureType.MASK, 'VALID_DATA')
 
-        for feature in self.features :
+        if self.features is None:
+            self.features = [(FeatureType.DATA, fname) for fname in eopatch.get_features()[FeatureType.DATA]]
+
+        dico = {}
+        for ftype, fname in self.features :
             new_eopatch = copy.deepcopy(eopatch)
-            new_eopatch = self._interpolate_feature(new_eopatch, feature, mask_feature)
-            dico[feature] = new_eopatch.data[feature]
+            new_eopatch = self._interpolate_feature(new_eopatch, (ftype, fname), mask_feature)
+            dico[fname] = new_eopatch[ftype][fname]
 
         eopatch['data'] = dico
-        t, h, w, _ = new_eopatch.data[feature].shape
+        t, h, w, _ = dico[fname].shape
         eopatch.timestamp = new_eopatch.timestamp
-        eopatch['mask']['IS_DATA'] = np.zeros((t, h, w, 1))+1
+        eopatch['mask']['IS_DATA'] = (np.zeros((t, h, w, 1))+1).astype(int)
         eopatch['mask']['VALID_DATA'] = (np.zeros((t, h, w, 1))+1).astype(bool)
         if "CLM" in eopatch.mask.keys():
-            eopatch.remove_feature(FeatureType.MASK, "CLM")
+            remove_feature = RemoveFeatureTask([(FeatureType.MASK, "CLM")])
+            remove_feature.execute(eopatch)
 
         return eopatch
 
@@ -174,6 +184,7 @@ class InterpolateFeatures(EOTask):
 class CurveFitting(EOTask):
     def __init__(self, range_doy = None):
         self.range_doy = range_doy
+        self.params = None
 
     def get_time_series_profile(self,
                                 eopatch,
@@ -181,10 +192,10 @@ class CurveFitting(EOTask):
                                 feature_mask = 'polygon_mask',
                                 function=np.nanmedian):
 
-        feature_array = eopatch.get_feature(FeatureType.DATA, feature)
+        feature_array = eopatch[FeatureType.DATA][feature]
         if feature_mask not in eopatch[FeatureType.MASK_TIMELESS].keys():
             raise ValueError('The feature ' + feature_mask + " is missing in MASK_TIMELESS")
-        crop_mask = eopatch.get_feature(FeatureType.MASK_TIMELESS, feature_mask)
+        crop_mask = eopatch[FeatureType.MASK_TIMELESS][feature_mask]
         # Transform mask from 3D to 4D
         times, h, w, shape = feature_array.shape
         mask = crop_mask.reshape(1, h, w, 1)
@@ -198,11 +209,11 @@ class CurveFitting(EOTask):
         ts_mean = np.ma.apply_over_axes(function, a, [1, 2])
         ts_mean = ts_mean.reshape(ts_mean.shape[0], ts_mean.shape[-1])
         if self.range_doy is not None:
-            _, ids_filter = self._get_ids_period(eopatch)
+            _, ids_filter = self.get_doy_period(eopatch)
             ts_mean = ts_mean[ids_filter]
         return ts_mean
 
-    def _get_ids_period(self, eopatch):
+    def get_doy_period(self, eopatch):
 
         first_of_year = eopatch.timestamp[0].timetuple().tm_yday
         last_of_year = eopatch.timestamp[-1].timetuple().tm_yday
@@ -266,6 +277,7 @@ class CurveFitting(EOTask):
             maxfev=1000000,
             absolute_sigma=True,
         )
+        self.params = popt
 
         return popt
 
@@ -273,9 +285,9 @@ class CurveFitting(EOTask):
 
         avg_ts = self.get_time_series_profile(eopatch, feature, feature_mask, function)
         if self.range_doy is not None:
-            times_doy, _ = self._get_ids_period(eopatch)
+            times_doy, _ = self.get_doy_period(eopatch)
         else:
-            times_doy = self._get_ids_period(eopatch)
+            times_doy = self.get_doy_period(eopatch)
 
         y = avg_ts.flatten()
         x = (times_doy - times_doy[0]) / (times_doy[-1] - times_doy[0])

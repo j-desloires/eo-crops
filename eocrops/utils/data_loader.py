@@ -1,4 +1,4 @@
-from eolearn.core import EOPatch, FeatureType
+from eolearn.core import EOPatch, FeatureType, AddFeatureTask
 
 import glob
 import numpy as np
@@ -74,6 +74,7 @@ class EOPatchDataset:
         '''
         Resample time series over a new periods after double logistic curve fitting
         '''
+
         xnew = np.arange(0, 365, self.resampling['day_periods'])
         start = np.where(xnew >= doy[0])[0][0]
         end = np.where(xnew <= doy[-1])[0][-1]
@@ -101,17 +102,19 @@ class EOPatchDataset:
                       resampled_range=resampled_range,
                       algorithm = algorithm)
 
-        ls_feats = []
+        features = []
         for ftype, fname, _, _, _ in self.features_data:
-            ls_feats.append(fname)
-        new_eopatch = self._interpolate_feature(eopatch, ls_feats, **kwargs)
+            features.append((FeatureType.DATA, fname))
+        new_eopatch = self._interpolate_feature(eopatch=eopatch, features=features, **kwargs)
 
         return new_eopatch
 
     def _prepare_eopatch(self, patch, resampled_range, algorithm = 'linear'):
 
         polygon_mask = (patch.data_timeless['FIELD_ID']>0).astype(np.int32)
-        patch.add_feature(self.mask[0], self.mask[1], polygon_mask.astype(bool))
+        add_feature = AddFeatureTask(self.mask)
+        add_feature.execute(eopatch=patch, data=polygon_mask.astype(bool))
+        #patch.add_feature(self.mask[0], self.mask[1], polygon_mask.astype(bool))
 
         erode = ErosionTask(mask_feature=self.mask, disk_radius=1)
         erode.execute(patch)
@@ -134,13 +137,13 @@ class EOPatchDataset:
             if not doubly_logistic:
                 year = str(patch.timestamp[0].year)
                 start, end = year + self.resampling['start'], year + self.resampling['end']
-                resampling_range = (start, end, self.resampling['day_periods'])
+                resampled_range = (start, end, self.resampling['day_periods'])
             else:
-                resampling_range = None
+                resampled_range = None
 
-            patch = self._prepare_eopatch(patch, resampling_range, algorithm)
+            patch = self._prepare_eopatch(patch, resampled_range, algorithm)
 
-            doy, _ = self.curve_fitting._get_ids_period(patch)
+            doy, _ = self.curve_fitting.get_doy_period(patch)
             #################################################################
             data = []
             for feat_type, feat_name, _, dtype, _ in self.features_data:
@@ -152,8 +155,8 @@ class EOPatchDataset:
 
                 if doubly_logistic:
                     arr = self.curve_fitting.execute(eopatch = patch, feature=feat_name, feature_mask=self.mask[-1])
-                    arr = self._resamping_timeseries(arr.reshape(arr.shape[0], 1), doy)
 
+                arr = self._resamping_timeseries(arr.reshape(arr.shape[0], 1), doy)
                 data.append(arr)
 
             return data
