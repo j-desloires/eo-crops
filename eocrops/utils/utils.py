@@ -7,13 +7,12 @@ import rasterio
 import warnings
 
 import numpy as np
-
+import os
 
 
 def save_numpy(path, array, name_array):
     with open(os.path.join(path, name_array + '.npy'), 'wb') as f:
         np.save(f, array)
-
 
 def MetaInfos(saving_path, N) :
     with rasterio.open(saving_path) as src0 :

@@ -211,6 +211,12 @@ class CurveFitting(EOTask):
         if self.range_doy is not None:
             _, ids_filter = self.get_doy_period(eopatch)
             ts_mean = ts_mean[ids_filter]
+        ########################
+        #Replace nas values with nearest valid value
+        valid_values = np.where(~np.isnan(ts_mean))[0]
+        ts_mean[:valid_values[0]] = ts_mean[valid_values[0]]
+        ts_mean[valid_values[-1]:] = ts_mean[valid_values[-1]]
+
         return ts_mean
 
     def get_doy_period(self, eopatch):

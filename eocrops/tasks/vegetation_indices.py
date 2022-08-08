@@ -107,6 +107,53 @@ class BiophysicalIndices:
         self.sunZen_norm = self._normalize(funccos(self.sunZenithAngles*degToRad), 0.342022871159208, 0.936206429175402)
         self.relAzim_norm = funccos((self.sunAzimuthAngles-self.viewAzimuthMean)*degToRad)
 
+    def get_FCOVER(self):
+        '''Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as input the metadata of sentinel2 images'''
+
+        n1 = self._neuron(- 1.45261652206, - 0.156854264841, 0.124234528462,
+                          + 0.235625516229, - 1.8323910258, - 0.217188969888,
+                          + 5.06933958064, - 0.887578008155, - 1.0808468167,
+                          - 0.0323167041864, - 0.224476137359, - 0.195523962947,
+                          self.b03_norm, self.b04_norm, self.b05_norm, self.b06_norm,
+                          self.b07_norm, self.b8a_norm, self.b11_norm, self.b12_norm,
+                          self.viewZen_norm, self.sunZen_norm, self.relAzim_norm)
+
+        n2 = self._neuron(- 1.70417477557, - 0.220824927842, + 1.28595395487,
+                          + 0.703139486363, - 1.34481216665, - 1.96881267559,
+                          - 1.45444681639, + 1.02737560043, - 0.12494641532,
+                          + 0.0802762437265, - 0.198705918577, + 0.108527100527,
+                          self.b03_norm, self.b04_norm, self.b05_norm, self.b06_norm,
+                          self.b07_norm, self.b8a_norm, self.b11_norm, self.b12_norm,
+                          self.viewZen_norm, self.sunZen_norm, self.relAzim_norm)
+
+        n3 = self._neuron(1.02168965849, - 0.409688743281, + 1.08858884766,
+                          + 0.36284522554, + 0.0369390509705, - 0.348012590003,
+                          - 2.0035261881, + 0.0410357601757, + 1.22373853174,
+                          + -0.0124082778287, - 0.282223364524, + 0.0994993117557,
+                          self.b03_norm, self.b04_norm, self.b05_norm, self.b06_norm,
+                          self.b07_norm, self.b8a_norm, self.b11_norm, self.b12_norm,
+                          self.viewZen_norm, self.sunZen_norm, self.relAzim_norm)
+
+        n4 = self._neuron(- 0.498002810205, - 0.188970957866, - 0.0358621840833,
+                          + 0.00551248528107, + 1.35391570802, - 0.739689896116,
+                          - 2.21719530107, + 0.313216124198, + 1.5020168915,
+                          + 1.21530490195, - 0.421938358618, + 1.48852484547,
+                          self.b03_norm, self.b04_norm, self.b05_norm, self.b06_norm,
+                          self.b07_norm, self.b8a_norm, self.b11_norm, self.b12_norm,
+                          self.viewZen_norm, self.sunZen_norm, self.relAzim_norm)
+
+        n5 = self._neuron(-3.88922154789, + 2.49293993709, - 4.40511331388,
+                          - 1.91062012624, - 0.703174115575, - 0.215104721138,
+                          - 0.972151494818, - 0.930752241278, + 1.2143441876,
+                          - 0.521665460192, - 0.445755955598, + 0.344111873777,
+                          self.b03_norm, self.b04_norm, self.b05_norm, self.b06_norm,
+                          self.b07_norm, self.b8a_norm, self.b11_norm, self.b12_norm,
+                          self.viewZen_norm, self.sunZen_norm, self.relAzim_norm)
+
+        l2 = self._layer2(- 0.0967998147811, + 0.23080586765, n1, - 0.333655484884, n2, - 0.499418292325, n3,
+                          + 0.0472484396749, n4, - 0.0798516540739, n5)
+
+        return self._denormalize(l2, 0.000181230723879, 0.999638214715)
 
     def get_LAI(self) :
         '''Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as input the metadata of sentinel2 images'''
@@ -273,6 +320,7 @@ class VegetationIndicesS2(EOTask) :
         biopysicial_parameters.apply_normalize()
 
         self.fapar = biopysicial_parameters.get_FAPAR()
+        self.fcover = biopysicial_parameters.get_FCOVER()
         self.LAI = biopysicial_parameters.get_LAI()
         self.Cab = biopysicial_parameters.get_Cab()
 
@@ -310,8 +358,12 @@ class VegetationIndicesS2(EOTask) :
         self.sunAzimuthAngles = illumination_array[..., 3]
 
         self.get_vegetation_indices()
+
         add_fapar = AddFeatureTask((FeatureType.DATA, 'fapar'))
         add_fapar.execute(eopatch=eopatch, data=self.fapar[..., np.newaxis])
+
+        add_FCOVER = AddFeatureTask((FeatureType.DATA, 'fcover'))
+        add_FCOVER.execute(eopatch=eopatch, data=self.fcover[..., np.newaxis])
         
         add_Cab = AddFeatureTask((FeatureType.DATA, 'Cab'))
         add_Cab.execute(eopatch=eopatch, data=self.Cab[..., np.newaxis])

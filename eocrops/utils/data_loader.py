@@ -7,7 +7,7 @@ import os
 
 from eolearn.geometry import ErosionTask
 import eocrops.tasks.preprocessing as preprocessing
-import copy
+import warnings
 from scipy import interpolate as interpolate
 ###########################################################################################################
 
@@ -40,6 +40,8 @@ class EOPatchDataset:
 
         if resampling is None:
             resampling = dict(start = '-01-01', end = '-12-31', day_periods = 8)
+            warnings.warn(
+                'You must specify a resampling periods to make your observations comparable. The default is set to ' + str(resampling))
         self.resampling = resampling
         self.function = function
 
@@ -235,8 +237,6 @@ class EOPatchDataset:
         npy_labels = npy_labels.reshape(npy_labels.shape[0], npy_labels.shape[-1])
 
         return npy_labels
-
-
 
 
 
