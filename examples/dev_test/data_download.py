@@ -22,9 +22,9 @@ print(dir_path)
 # read microplot data
 shapefile_input = gpd.read_file(os.path.join(dir_path, 'eo-crops/examples/layers/POLYGON.shp'))
 
-api = 'a0a34986-b80d-40d2-9627-008299dcccb4'
-client_id = '07ae5fb1-ea68-4da0-9574-ea6978ead834'
-client_secret = '<KSdTbh@_/HXl-YoZp(<?lI[f7#k*PS#7!HDCv>/'
+api = ''
+client_id = ''
+client_secret = ''
 
 
 config = utils_sh.config_sentinelhub_cred(api, client_id, client_secret)

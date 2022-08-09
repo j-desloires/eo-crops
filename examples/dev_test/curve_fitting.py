@@ -9,7 +9,7 @@ list_files = os.listdir('/home/johann/Documents/EOPatch samples')
 f = list_files[1]
 eopatch = EOPatch.load('/home/johann/Documents/EOPatch samples/' + f)
 
-curve_fit = preprocessing.CurveFitting(range_doy=(100, 365))
+curve_fit = preprocessing.CurveFitting(range_doy=(1, 365))
 
 ts_mean = curve_fit.get_time_series_profile(eopatch,feature='fcover', feature_mask='MASK').flatten()
 
