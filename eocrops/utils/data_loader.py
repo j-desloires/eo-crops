@@ -36,7 +36,7 @@ class EOPatchDataset:
         self.features_data = features_data
         self.suffix = suffix
         self.mask = (FeatureType.MASK_TIMELESS, 'MASK')
-        self.curve_fitting = preprocessing.CurveFitting(range_doy=range_doy)
+        self.range_doy = range_doy
 
         if resampling is None:
             resampling = dict(start = '-01-01', end = '-12-31', day_periods = 8)
@@ -127,8 +127,35 @@ class EOPatchDataset:
                                           copy_features=[self.mask])
         return patch
 
+    @staticmethod
+    def _retrieve_range_doy(path, meta_file, range_doy, path_column,
+                            planting_date_column, harvest_date_column):
 
-    def _read_patch(self, path, algorithm = 'linear', doubly_logistic = False):
+        meta_file_subset = meta_file[meta_file[path_column] == path]
+        if meta_file_subset.shape[0] == 0:
+            raise ValueError('We cannot find a correspond path for the patch in the meta file')
+        else:
+            if planting_date_column is not None:
+                if planting_date_column not in meta_file_subset.columns:
+                    raise ValueError('The column ' + planting_date_column + ' is not in the meta file')
+                else:
+                    range_doy[0] = meta_file_subset[planting_date_column].values[0]
+            if harvest_date_column is not None:
+                if harvest_date_column not in meta_file_subset.columns:
+                    raise ValueError('The column ' + harvest_date_column + ' is not in the meta file')
+                else:
+                    range_doy[1] = meta_file_subset[harvest_date_column].values[0]
+
+        return range_doy
+
+
+    def _read_patch(self, path, algorithm = 'linear',
+                    doubly_logistic = False, return_params = False,
+                    fit_resampling = False, meta_file = None,
+                    path_column = None,
+                    planting_date_column = None, harvest_date_column = None,
+                    window_planting = 0, window_harvest = 0):
+
         """ TF op for reading an eopatch at a given path. """
         def _func(path):
             path = path.numpy().decode('utf-8')
@@ -144,22 +171,43 @@ class EOPatchDataset:
                 resampled_range = None
 
             patch = self._prepare_eopatch(patch, resampled_range, algorithm)
+            range_doy = self.range_doy
 
-            doy, _ = self.curve_fitting.get_doy_period(patch)
+            if meta_file is not None:
+                range_doy = self._retrieve_range_doy(path, meta_file, list(range_doy),
+                                                     path_column, planting_date_column,
+                                                     harvest_date_column)
+
+            curve_fitting = preprocessing.CurveFitting(range_doy = tuple([int(range_doy[0]) - window_planting,
+                                                                          int(range_doy[1]) + window_harvest]))
             #################################################################
             data = []
+            #self = curve_fitting
             for feat_type, feat_name, _, dtype, _ in self.features_data:
-
-                arr = self.curve_fitting.get_time_series_profile(eopatch=patch,
-                                                                 feature=feat_name,
-                                                                 feature_mask= self.mask[-1],
-                                                                 function = self.function)
-
                 if doubly_logistic:
-                    arr = self.curve_fitting.execute(eopatch = patch, feature=feat_name, feature_mask=self.mask[-1])
+                    if fit_resampling:
+                        resampling = self.resampling['day_periods']
+                    else:
+                        resampling = 0
 
-                arr = self._resamping_timeseries(arr.reshape(arr.shape[0], 1), doy)
-                data.append(arr)
+                    doy, arr = curve_fitting.execute(eopatch = patch,
+                                                     feature=feat_name,
+                                                     feature_mask=self.mask[-1],
+                                                     resampling=resampling)
+
+                    params = curve_fitting.params
+                    if return_params:
+                        data.append(params)
+                    else:
+                        if not fit_resampling:
+                            arr = self._resamping_timeseries(arr.reshape(arr.shape[0], 1), doy)
+                        data.append(arr)
+                else:
+                    arr = curve_fitting.get_time_series_profile(eopatch=patch,
+                                                                feature=feat_name,
+                                                                feature_mask=self.mask[-1],
+                                                                function=self.function)
+                    data.append(arr)
 
             return data
 
@@ -180,7 +228,8 @@ class EOPatchDataset:
         TF op for reading an eopatch at a given path.
         It must have a column with the corresponding path
         """
-        def _func(path) :
+
+        def _func(path):
             path = path.numpy().decode('utf-8')
             vector_data_ = vector_data.copy()
             vector_data_ = vector_data_[vector_data_[column_path] == path]
@@ -207,7 +256,13 @@ class EOPatchDataset:
         out_df = [np.expand_dims(k, axis=0) for k in out_df]
         return np.concatenate(out_df, axis=0)
 
-    def get_eopatch_tfds(self, algorithm = 'linear', doubly_logistic = False):
+    def get_eopatch_tfds(self, algorithm = 'linear',
+                         doubly_logistic = False, return_params = False, fit_resampling = False,
+                         meta_file=None,
+                         path_column=None,
+                         planting_date_column=None, harvest_date_column=None,
+                         window_planting = 0, window_harvest = 0
+                         ):
         '''
         Aggregate all the EOPatch files into a single 3D array, where each observation is summarized muiltivariate time series (e.g. median NDVI and NDWI) of one EOPatch
 
@@ -217,10 +272,22 @@ class EOPatchDataset:
         '''
 
         self._instance_tf_ds()
-        ds_numpy = self.dataset.map(lambda x : self._read_patch(path = x, algorithm=algorithm, doubly_logistic = doubly_logistic),
+        ds_numpy = self.dataset.map(lambda x : self._read_patch(path = x,
+                                                                algorithm=algorithm,
+                                                                doubly_logistic = doubly_logistic,
+                                                                return_params=return_params,
+                                                                fit_resampling = fit_resampling,
+                                                                meta_file=meta_file,
+                                                                path_column=path_column,
+                                                                planting_date_column=planting_date_column,
+                                                                harvest_date_column=harvest_date_column,
+                                                                window_planting = window_planting,
+                                                                window_harvest=window_harvest
+                                                                ),
                                     num_parallel_calls=self.AUTOTUNE)
         out_feature = list(ds_numpy)
         return self._format_feature(out_feature)
+
 
     def get_vector_tfds(self, vector_data, features_list, column_path):
         '''

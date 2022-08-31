@@ -4,12 +4,13 @@ import numpy as np
 import os
 from eocrops.utils import data_loader
 import matplotlib.pyplot as plt
+import pandas as pd
 #################################################################################
 
 #Aggregate all the EOPatch saved into a root directory into a single 3D np.array, where each observation is an aggregated multiviariate time series
 #The objective is to get a dataset for machine learning project (e.g. yield prediction) where we work at the object level (e.g. averaged time series)
 
-root_dir = '/home/johann/Documents/EOPatch samples'
+root_dir = '/home/johann/Documents/DATA/EOPatch samples'
 os.listdir(root_dir)
 
 #Features of EOPatch to load in the final dataset
@@ -18,8 +19,19 @@ features_data = [
     (FeatureType.DATA, 'fapar', 'fapar', 'float32', 1),
     (FeatureType.DATA, 'Cab', 'Cab', 'float32', 1)]
 
+
+
 #Read EOPatch into a 3D np.array, where each observation is the median time series of the field
 #self = pipeline_eopatch_tfds
+
+f = os.listdir('/home/johann/Documents/DATA/EOPatch samples')[1]
+path = os.path.join('/home/johann/Documents/DATA/EOPatch samples', f)
+patch = EOPatch.load(path)
+
+file = pd.read_csv(os.path.join('/home/johann/Documents/DATA/prod_shp', 'polygon_process_output.csv'))
+file['path'] = [os.path.join('/home/johann/Documents/DATA/EOPatch samples', f + '_S2_L2A') for f in file['key']]
+
+
 pipeline_eopatch_tfds = data_loader.EOPatchDataset(
     root_dir = root_dir, #root directory where EOPatch are saved
     features_data=features_data, #features to read in EOPatch
@@ -29,13 +41,45 @@ pipeline_eopatch_tfds = data_loader.EOPatchDataset(
     function=np.nanmedian #get average time series from the field
 )
 
+self = pipeline_eopatch_tfds
+path = '/home/johann/Documents/DATA/EOPatch samples/1225-IIJ6395DGGNFA6657ZL-2021_S2_L2A'
+
 #Get the 3D array dataset with 'cubic' interpolation over the resampling period
-npy_eopatch = pipeline_eopatch_tfds.get_eopatch_tfds(algorithm='cubic', doubly_logistic=False)
-npy_eopatch.shape
-#Plot Cab
-plt.plot(npy_eopatch[0,20:40,1])
+
+npy_eopatch_ = pipeline_eopatch_tfds.get_eopatch_tfds(algorithm='cubic',
+                                                     meta_file=file,
+                                                     path_column='path',
+                                                     planting_date_column='days_planting',
+                                                     harvest_date_column= 'days_harvest')
+
+
+npy_eopatch = pipeline_eopatch_tfds.get_eopatch_tfds(algorithm='cubic',
+                                                     doubly_logistic=True,
+                                                     return_params = False,
+                                                     fit_resampling=True,
+                                                     meta_file=file,
+                                                     path_column='path',
+                                                     planting_date_column='days_planting',
+                                                     harvest_date_column= 'days_harvest',
+                                                     window_planting=5,
+                                                     window_harvest=-5)
+
+
+plt.plot(npy_eopatch[0,: ,0])
+plt.plot(npy_eopatch_[1,:,0])
 plt.show()
 
+
+
+#Plot Cab
+import time
+for i in range(3):
+    for obs in range(2):
+        print(i)
+        time.sleep(1)
+        plt.plot(npy_eopatch[obs,22:35,i])
+        plt.plot(npy_eopatch_[obs,22:35,i])
+        plt.show()
 
 #Create an example of vector dataset with auxilliary data. It must have a column 'path' to match with the corresponding EOPatch
 dict_df = pd.DataFrame(
@@ -44,11 +88,14 @@ dict_df = pd.DataFrame(
         path = [os.path.join(root_dir, k) for k in os.listdir(root_dir)]
     )
 )
+
+
 #Features from vector file which contains auxilliary data (e.g. labels for crop classification)
 feature_vector = [
     ('biomass', 'float32'),
     ('path', 'string')
 ]
+
 #Get corresponding labels from the vector file dict_df
 npy_labels = pipeline_eopatch_tfds.get_vector_tfds(vector_data=dict_df,
                                                    features_list=feature_vector,

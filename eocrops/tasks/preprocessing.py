@@ -11,7 +11,8 @@ from scipy.optimize import curve_fit
 import numpy as np
 from eolearn.core import RemoveFeatureTask
 
-class PolygonMask(EOTask) :
+
+class PolygonMask(EOTask):
     """
     EOTask that performs rasterization from an input shapefile into :
     - data_timeless feature 'FIELD_ID' (0 nodata; 1,...,N for each observation of the shapefile ~ object IDs)
@@ -29,7 +30,7 @@ class PolygonMask(EOTask) :
     EOPatch
     """
 
-    def __init__(self, geodataframe) :
+    def __init__(self, geodataframe):
         self.geodataframe = geodataframe
 
     def execute(self, eopatch):
@@ -40,11 +41,11 @@ class PolygonMask(EOTask) :
         # Get an ID for each polygon from the input shapefile
         self.geodataframe['FIELD_ID'] = list(range(1, self.geodataframe.shape[0] + 1))
 
-        if self.geodataframe.shape[0]>1 :
+        if self.geodataframe.shape[0] > 1:
             bbox = self.geodataframe.geometry.total_bounds
             polygon_mask = sentinelhub.BBox(bbox=[(bbox[0], bbox[1]), (bbox[2], bbox[3])], crs=self.geodataframe.crs)
             self.geodataframe['MASK'] = polygon_mask.geometry
-        else :
+        else:
             self.geodataframe['MASK'] = self.geodataframe['geometry']
 
         self.geodataframe['polygon_bool'] = True
@@ -56,7 +57,8 @@ class PolygonMask(EOTask) :
 
         rasterization_task = VectorToRasterTask(self.geodataframe,
                                                 (FeatureType.MASK_TIMELESS, "MASK"),
-                                                values_column="polygon_bool", raster_shape=(FeatureType.MASK, 'IS_DATA'),
+                                                values_column="polygon_bool",
+                                                raster_shape=(FeatureType.MASK, 'IS_DATA'),
                                                 raster_dtype=np.uint16)
         eopatch = rasterization_task.execute(eopatch)
 
@@ -66,7 +68,7 @@ class PolygonMask(EOTask) :
 
 
 class MaskPixels(EOTask):
-    def __init__(self, features, fname = 'MASK') :
+    def __init__(self, features, fname='MASK'):
         '''
         Parameters
         ----------
@@ -77,12 +79,12 @@ class MaskPixels(EOTask):
         self.fname = fname
 
     @staticmethod
-    def _filter_array(patch, ftype, fname, mask) :
+    def _filter_array(patch, ftype, fname, mask):
         ivs = patch[ftype][fname]
 
         arr0 = np.ma.array(ivs,
                            dtype=np.float32,
-                           mask=(1-mask).astype(bool),
+                           mask=(1 - mask).astype(bool),
                            fill_value=np.nan)
 
         arr0 = arr0.filled()
@@ -90,7 +92,7 @@ class MaskPixels(EOTask):
 
         return patch
 
-    def execute(self, patch, erosion = 0):
+    def execute(self, patch, erosion=0):
         copy_patch = copy.deepcopy(patch)
         times = len(patch.timestamp)
         if erosion:
@@ -100,8 +102,8 @@ class MaskPixels(EOTask):
 
         crop_mask = copy_patch["mask_timeless"][self.fname]
         # Filter the pixels of each features
-        for index in self.features :
-            if index in list(patch.data.keys()) :
+        for index in self.features:
+            if index in list(patch.data.keys()):
                 ftype = 'data'
                 shape = patch[ftype][index].shape[-1]
                 mask = crop_mask.reshape(1, crop_mask.shape[0], crop_mask.shape[1], 1)
@@ -109,7 +111,7 @@ class MaskPixels(EOTask):
                 mask = np.concatenate(mask, axis=0)
                 mask = [mask for k in range(shape)]
                 mask = np.concatenate(mask, axis=-1)
-            else :
+            else:
                 ftype = 'data_timeless'
                 mask = crop_mask
             patch = self._filter_array(patch, ftype, index, mask)
@@ -117,12 +119,11 @@ class MaskPixels(EOTask):
         return patch
 
 
-
 class InterpolateFeatures(EOTask):
     def __init__(self, resampled_range,
-                 features = None,
-                 algorithm = 'linear',
-                 copy_features = None):
+                 features=None,
+                 algorithm='linear',
+                 copy_features=None):
         self.resampled_range = resampled_range
         self.features = features
         self.algorithm = algorithm
@@ -132,29 +133,27 @@ class InterpolateFeatures(EOTask):
 
         kwargs = dict(mask_feature=mask_feature,
                       resample_range=self.resampled_range,
-                      feature = features,
+                      feature=features,
                       bounds_error=False)
 
         if self.resampled_range is not None:
             kwargs['copy_features'] = self.copy_features
 
-        if self.algorithm=='linear' :
+        if self.algorithm == 'linear':
             interp = LinearInterpolationTask(
                 parallel=True,
                 **kwargs
             )
-        elif self.algorithm=='cubic' :
+        elif self.algorithm == 'cubic':
             interp = CubicInterpolationTask(
                 **kwargs
             )
         eopatch = interp.execute(eopatch)
         return eopatch
 
-
     def execute(self, eopatch):
 
         '''Gap filling after data extraction, very useful if did not include it in the data extraction workflow'''
-
 
         mask_feature = None
         if 'VALID_DATA' in list(eopatch.mask.keys()):
@@ -164,7 +163,7 @@ class InterpolateFeatures(EOTask):
             self.features = [(FeatureType.DATA, fname) for fname in eopatch.get_features()[FeatureType.DATA]]
 
         dico = {}
-        for ftype, fname in self.features :
+        for ftype, fname in self.features:
             new_eopatch = copy.deepcopy(eopatch)
             new_eopatch = self._interpolate_feature(new_eopatch, (ftype, fname), mask_feature)
             dico[fname] = new_eopatch[ftype][fname]
@@ -172,8 +171,8 @@ class InterpolateFeatures(EOTask):
         eopatch['data'] = dico
         t, h, w, _ = dico[fname].shape
         eopatch.timestamp = new_eopatch.timestamp
-        eopatch['mask']['IS_DATA'] = (np.zeros((t, h, w, 1))+1).astype(int)
-        eopatch['mask']['VALID_DATA'] = (np.zeros((t, h, w, 1))+1).astype(bool)
+        eopatch['mask']['IS_DATA'] = (np.zeros((t, h, w, 1)) + 1).astype(int)
+        eopatch['mask']['VALID_DATA'] = (np.zeros((t, h, w, 1)) + 1).astype(bool)
         if "CLM" in eopatch.mask.keys():
             remove_feature = RemoveFeatureTask([(FeatureType.MASK, "CLM")])
             remove_feature.execute(eopatch)
@@ -182,14 +181,14 @@ class InterpolateFeatures(EOTask):
 
 
 class CurveFitting(EOTask):
-    def __init__(self, range_doy = None):
+    def __init__(self, range_doy=None):
         self.range_doy = range_doy
         self.params = None
 
     def get_time_series_profile(self,
                                 eopatch,
                                 feature,
-                                feature_mask = 'polygon_mask',
+                                feature_mask='polygon_mask',
                                 function=np.nanmedian):
 
         feature_array = eopatch[FeatureType.DATA][feature]
@@ -210,9 +209,12 @@ class CurveFitting(EOTask):
         ts_mean = ts_mean.reshape(ts_mean.shape[0], ts_mean.shape[-1])
         if self.range_doy is not None:
             _, ids_filter = self.get_doy_period(eopatch)
-            ts_mean = ts_mean[ids_filter]
+
+            ts_mean[:ids_filter[0]] = 0.2
+            ts_mean[ids_filter[-1]:] = 0.2
+
         ########################
-        #Replace nas values with nearest valid value
+        # Replace nas values with nearest valid value
         valid_values = np.where(~np.isnan(ts_mean))[0]
         ts_mean[:valid_values[0]] = ts_mean[valid_values[0]]
         ts_mean[valid_values[-1]:] = ts_mean[valid_values[-1]]
@@ -229,37 +231,43 @@ class CurveFitting(EOTask):
         times_doy = times_ * (last_of_year - first_of_year) + first_of_year
 
         if self.range_doy is not None:
-            ids_filter = np.where((times_doy > self.range_doy[0]) &
-                                  (times_doy < self.range_doy[1]))[0]
-            return times_doy[ids_filter], ids_filter
+            ids_filter = np.where((times_doy > int(self.range_doy[0])) &
+                                  (times_doy < int(self.range_doy[1])))[0]
+            #print(ids_filter)
+            return times_doy, ids_filter
         else:
             return times_doy
+    '''
+    @staticmethod
+    def dbl_logistic_model(p, agdd):
+        """A double logistic model, as in Sobrino and Juliean, or Zhang et al"""
+        return p[0] + p[1] * (1. / (1 + np.exp(p[2] * (agdd - p[3]))) +
+                              1. / (1 + np.exp(-p[4] * (agdd - p[5]))) - 1)
 
+    @staticmethod
+    def cost_function(p, t, y_obs, passer, sigma_obs, func=dbl_logistic_model):
+        y_pred = func(p, t)
+        cost = -0.5 * (y_pred[passer] - y_obs) ** 2 / sigma_obs ** 2
+        return -cost.sum()
+    '''
 
     @staticmethod
     def _doubly_logistic(middle, initial_value, scale, a1, a2, a3, a4, a5):
-        '''
-        α1 is seasonal minimum greenness
-        α2 is the seasonal amplitude
-        α3 controls the green-up rate
-        α4 is the green-up inflection point
-        α5 controls the mid-growing season greenness trajectory.
-        :return:
-        '''
         return initial_value + scale * np.piecewise(
             middle,
             [middle < a1, middle >= a1],
             [lambda y: np.exp(-(((a1 - y) / a4) ** a5)), lambda y: np.exp(-(((y - a1) / a2) ** a3))],
         )
 
+
     def _fit_optimize_doubly(self, x_axis, y_axis, initial_parameters=None):
         bounds_lower = [
-            np.min(y_axis),
+            np.quantile(y_axis, 0.1),
             -np.inf,
             x_axis[0],
-            0.15,
+            0,
             1,
-            0.15,
+            0,
             1,
         ]
         bounds_upper = [
@@ -272,7 +280,9 @@ class CurveFitting(EOTask):
             np.inf,
         ]
         if initial_parameters is None:
-            initial_parameters = [np.mean(y_axis), 0.2, (x_axis[-1] - x_axis[0]) / 2, 0.15, 10, 0.15, 10]
+            initial_parameters = [np.mean(y_axis), 0.2,
+                                  x_axis[np.argmax(y_axis)],
+                                  0.15, 10, 0.2, 5]
 
         popt, pcov = curve_fit(
             self._doubly_logistic,
@@ -280,28 +290,70 @@ class CurveFitting(EOTask):
             y_axis,
             initial_parameters,
             bounds=(bounds_lower, bounds_upper),
-            maxfev=1000000,
+            maxfev=10e10,
             absolute_sigma=True,
+            #method =  'trf'
         )
         self.params = popt
 
         return popt
 
-    def execute(self, eopatch, feature, feature_mask = 'polygon_mask', function=np.nanmedian):
 
-        avg_ts = self.get_time_series_profile(eopatch, feature, feature_mask, function)
+    def _check_range_doy(self, doy, ts_mean, length_period=8):
+        if doy[0] > self.range_doy[0]:
+            nb_periods_add = int((doy[0] - self.range_doy[0]) // length_period)
+            if nb_periods_add == 0:
+                nb_periods_add += 1
+            doy_add = [doy[0] - nb_periods_add * i for i in range(1, nb_periods_add + 1)]
+            doy_add.sort()
+
+            doy = np.concatenate([doy_add, doy], axis=0)
+            ts_add = [ts_mean[0] * 0.5 / i for i in range(1, nb_periods_add + 1)] #
+            ts_add.sort()
+            ts_mean = np.concatenate([ts_add, ts_mean], axis=0)
+
+
+        if doy[-1] < self.range_doy[1]:
+            nb_periods_add = int((self.range_doy[-1] - doy[-1]) // length_period)
+            if nb_periods_add == 0:
+                nb_periods_add += 1
+            doy_add = [doy[-1] + nb_periods_add * i for i in range(1, nb_periods_add + 1)]
+            doy_add.sort()
+
+            doy = np.concatenate([doy, doy_add], axis=0)
+            ts_add = [ts_mean[-1] * 0.5 / i for i in range(1, nb_periods_add + 1)]
+            ts_add.sort()
+            ts_mean = np.concatenate([ts_add, ts_mean], axis=0)
+
+        ts_mean[0] = 0.2
+        ts_mean[-1] = 0.2
+
+        return doy, ts_mean.flatten()
+
+
+    def execute(self, eopatch, feature, feature_mask='polygon_mask',
+                function=np.nanmedian, seeding_doy = 0,
+                harvest_doy = 0, resampling = 0):
+
+        y = self.get_time_series_profile(eopatch, feature, feature_mask, function)
+
         if self.range_doy is not None:
             times_doy, _ = self.get_doy_period(eopatch)
         else:
             times_doy = self.get_doy_period(eopatch)
 
-        y = avg_ts.flatten()
-        x = (times_doy - times_doy[0]) / (times_doy[-1] - times_doy[0])
+        #times_doy, y = self._check_range_doy(times_doy, avg_ts)
 
-        initial_value, scale, a1, a2, a3, a4, a5 = self._fit_optimize_doubly(x, y.flatten())
-        fitted = self._doubly_logistic(x, initial_value, scale, a1, a2, a3, a4, a5)
+        x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
+        ids = np.where(((x>0) & (x<1)))[0]
 
-        return fitted
+        initial_value, scale, a1, a2, a3, a4, a5 = self._fit_optimize_doubly(x[ids], y.flatten()[ids])
 
+        if resampling>0:
+            times_doy = np.array(range(0, 365, resampling))
+            x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
+            fitted = self._doubly_logistic(x, initial_value, scale, a1, a2, a3, a4, a5)
+        else:
+            fitted = self._doubly_logistic(x, initial_value, scale, a1, a2, a3, a4, a5)
 
-
+        return times_doy, fitted
