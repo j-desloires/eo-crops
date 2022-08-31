@@ -45,14 +45,14 @@ self = pipeline_eopatch_tfds
 path = '/home/johann/Documents/DATA/EOPatch samples/1225-IIJ6395DGGNFA6657ZL-2021_S2_L2A'
 
 #Get the 3D array dataset with 'cubic' interpolation over the resampling period
-
+##If we do not have planting and/or harvest date
 npy_eopatch_ = pipeline_eopatch_tfds.get_eopatch_tfds(algorithm='cubic',
                                                      meta_file=file,
                                                      path_column='path',
                                                      planting_date_column='days_planting',
                                                      harvest_date_column= 'days_harvest')
 
-
+## If we have planting and/or harvest date
 npy_eopatch = pipeline_eopatch_tfds.get_eopatch_tfds(algorithm='cubic',
                                                      doubly_logistic=True,
                                                      return_params = False,
@@ -64,22 +64,15 @@ npy_eopatch = pipeline_eopatch_tfds.get_eopatch_tfds(algorithm='cubic',
                                                      window_planting=5,
                                                      window_harvest=-5)
 
-
-plt.plot(npy_eopatch[0,: ,0])
-plt.plot(npy_eopatch_[1,:,0])
-plt.show()
-
-
-
-#Plot Cab
+#Plot
 import time
-for i in range(3):
-    for obs in range(2):
-        print(i)
-        time.sleep(1)
-        plt.plot(npy_eopatch[obs,22:35,i])
-        plt.plot(npy_eopatch_[obs,22:35,i])
-        plt.show()
+obs = 1
+for i in range(len(features_data)):
+    print(i)
+    time.sleep(1)
+    plt.plot(npy_eopatch[obs,:,i])
+    plt.plot(npy_eopatch_[obs,:,i])
+    plt.show()
 
 #Create an example of vector dataset with auxilliary data. It must have a column 'path' to match with the corresponding EOPatch
 dict_df = pd.DataFrame(
