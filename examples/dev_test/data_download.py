@@ -47,7 +47,7 @@ patch = sentinel2.workflow_instructions_S2L2A(**kwargs,
                                               coverage_predicate=0.5,
                                               interpolation={'interpolate': True, 'period_length' : 8})
 
-curve_fit = preprocessing.CurveFitting(range_doy=(100, 365))
+curve_fit = preprocessing.AsymmetricGaussian(range_doy=(100, 365))
 ts_mean = curve_fit.get_time_series_profile(patch,feature='LAI', feature_mask='MASK').flatten()
 ts_mean[:2] = np.nan
 
@@ -55,4 +55,4 @@ valid_values = np.where(~np.isnan(ts_mean))[0]
 ts_mean[:valid_values[0]] = ts_mean[valid_values[0]]
 ts_mean[valid_values[-1]:] = ts_mean[valid_values[-1]]
 
-fitted = curve_fit.execute(eopatch, feature='LAI')
+fitted = curve_fit.execute(patch, feature='LAI')
