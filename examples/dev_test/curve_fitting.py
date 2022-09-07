@@ -5,19 +5,29 @@ import matplotlib.pyplot as plt
 import os
 from scipy import interpolate
 
-list_files = os.listdir('/home/johann/Documents/EOPatch samples')
+##########################################################################################
+list_files = os.listdir('/home/johann/Documents/DATA/EOPatch samples')
 f = list_files[1]
-eopatch = EOPatch.load('/home/johann/Documents/EOPatch samples/' + f)
+eopatch = EOPatch.load('/home/johann/Documents/DATA/EOPatch samples/' + f)
 
-curve_fit = preprocessing.CurveFitting(range_doy=(1, 365))
+curve_fit_task = preprocessing.DoublyLogistic(range_doy=(120, 250))
+doy_, _ = curve_fit_task.get_doy_period(eopatch)
+self = curve_fit_task
 
-ts_mean = curve_fit.get_time_series_profile(eopatch,feature='fcover', feature_mask='MASK').flatten()
+ts_mean = curve_fit_task.get_time_series_profile(eopatch, feature='fapar', feature_mask='polygon_mask').flatten()
+doy, fitted = curve_fit_task.execute(eopatch, feature='fapar', feature_mask='polygon_mask')
 
-fitted = curve_fit.execute(eopatch, feature='fcover', feature_mask='MASK')
-doy, _ = curve_fit.get_doy_period(eopatch)
+curve_fit_asym = preprocessing.AsymmetricGaussian(range_doy=(120, 250))
+doy, fitted_asym = curve_fit_asym.execute(eopatch, feature='fapar', feature_mask='polygon_mask')
+
+plt.plot(doy, fitted_asym)
 plt.plot(doy, fitted)
-plt.plot(doy, ts_mean)
+plt.plot(doy_, ts_mean)
 plt.show()
+
+
+##########################################################################
+##########################################################################################
 
 
 flinear = interpolate.interp1d(doy, ts_mean, kind='cubic')

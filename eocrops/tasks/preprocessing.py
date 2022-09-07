@@ -237,67 +237,6 @@ class CurveFitting(EOTask):
             return times_doy, ids_filter
         else:
             return times_doy
-    '''
-    @staticmethod
-    def dbl_logistic_model(p, agdd):
-        """A double logistic model, as in Sobrino and Juliean, or Zhang et al"""
-        return p[0] + p[1] * (1. / (1 + np.exp(p[2] * (agdd - p[3]))) +
-                              1. / (1 + np.exp(-p[4] * (agdd - p[5]))) - 1)
-
-    @staticmethod
-    def cost_function(p, t, y_obs, passer, sigma_obs, func=dbl_logistic_model):
-        y_pred = func(p, t)
-        cost = -0.5 * (y_pred[passer] - y_obs) ** 2 / sigma_obs ** 2
-        return -cost.sum()
-    '''
-
-    @staticmethod
-    def _doubly_logistic(middle, initial_value, scale, a1, a2, a3, a4, a5):
-        return initial_value + scale * np.piecewise(
-            middle,
-            [middle < a1, middle >= a1],
-            [lambda y: np.exp(-(((a1 - y) / a4) ** a5)), lambda y: np.exp(-(((y - a1) / a2) ** a3))],
-        )
-
-
-    def _fit_optimize_doubly(self, x_axis, y_axis, initial_parameters=None):
-        bounds_lower = [
-            np.quantile(y_axis, 0.1),
-            -np.inf,
-            x_axis[0],
-            0,
-            1,
-            0,
-            1,
-        ]
-        bounds_upper = [
-            np.max(y_axis),
-            np.inf,
-            x_axis[-1],
-            np.inf,
-            np.inf,
-            np.inf,
-            np.inf,
-        ]
-        if initial_parameters is None:
-            initial_parameters = [np.mean(y_axis), 0.2,
-                                  x_axis[np.argmax(y_axis)],
-                                  0.15, 10, 0.2, 5]
-
-        popt, pcov = curve_fit(
-            self._doubly_logistic,
-            x_axis,
-            y_axis,
-            initial_parameters,
-            bounds=(bounds_lower, bounds_upper),
-            maxfev=10e10,
-            absolute_sigma=True,
-            #method =  'trf'
-        )
-        self.params = popt
-
-        return popt
-
 
     def _check_range_doy(self, doy, ts_mean, length_period=8):
         if doy[0] > self.range_doy[0]:
@@ -330,10 +269,9 @@ class CurveFitting(EOTask):
 
         return doy, ts_mean.flatten()
 
-
-    def execute(self, eopatch, feature, feature_mask='polygon_mask',
-                function=np.nanmedian, seeding_doy = 0,
-                harvest_doy = 0, resampling = 0):
+    def _instance_inputs(self, eopatch, feature,
+                         feature_mask='polygon_mask',
+                         function=np.nanmedian):
 
         y = self.get_time_series_profile(eopatch, feature, feature_mask, function)
 
@@ -342,18 +280,126 @@ class CurveFitting(EOTask):
         else:
             times_doy = self.get_doy_period(eopatch)
 
-        #times_doy, y = self._check_range_doy(times_doy, avg_ts)
-
         x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
         ids = np.where(((x>0) & (x<1)))[0]
 
-        initial_value, scale, a1, a2, a3, a4, a5 = self._fit_optimize_doubly(x[ids], y.flatten()[ids])
+        return times_doy[ids], x[ids], y.flatten()[ids]
+
+
+
+class AsymmetricGaussian(CurveFitting):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def _asym_gaussian(middle, initial_value, scale, a1, a2, a3, a4, a5):
+        return initial_value + scale * np.piecewise(
+            middle,
+            [middle < a1, middle >= a1],
+            [lambda y: np.exp(-(((a1 - y) / a4) ** a5)), lambda y: np.exp(-(((y - a1) / a2) ** a3))],
+        )
+
+    def _fit_optimize_asym(self, x_axis, y_axis, initial_parameters=None):
+        bounds_lower = [
+            np.quantile(y_axis, 0.1),
+            -np.inf,
+            x_axis[0],
+            0,
+            1,
+            0,
+            1,
+        ]
+        bounds_upper = [
+            np.max(y_axis),
+            np.inf,
+            x_axis[-1],
+            np.inf,
+            np.inf,
+            np.inf,
+            np.inf,
+        ]
+        if initial_parameters is None:
+            initial_parameters = [np.mean(y_axis), 0.2,
+                                  x_axis[np.argmax(y_axis)],
+                                  0.15, 10, 0.2, 5]
+
+        popt, pcov = curve_fit(
+            self._asym_gaussian,
+            x_axis,
+            y_axis,
+            initial_parameters,
+            bounds=(bounds_lower, bounds_upper),
+            maxfev=10e10,
+            absolute_sigma=True,
+            #method =  'trf'
+        )
+        self.params = popt
+
+        return popt
+
+    def execute(self, eopatch, feature, feature_mask='polygon_mask',
+                function=np.nanmedian, seeding_doy = 0,
+                harvest_doy = 0, resampling = 0):
+
+        times_doy, x, y = self._instance_inputs(eopatch, feature,
+                                                feature_mask,
+                                                function)
+
+        initial_value, scale, a1, a2, a3, a4, a5 = self._fit_optimize_asym(x, y)
 
         if resampling>0:
             times_doy = np.array(range(0, 365, resampling))
             x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
-            fitted = self._doubly_logistic(x, initial_value, scale, a1, a2, a3, a4, a5)
+            x[x < 0] = 0
+            x[x > 1] = 1
+            fitted = self._asym_gaussian(x, initial_value, scale, a1, a2, a3, a4, a5)
         else:
-            fitted = self._doubly_logistic(x, initial_value, scale, a1, a2, a3, a4, a5)
+            fitted = self._asym_gaussian(x, initial_value, scale, a1, a2, a3, a4, a5)
+
+        return times_doy, fitted
+
+
+
+
+class DoublyLogistic(CurveFitting):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def _doubly_logistic(x, vb, ve, k, c, p, d, q):
+        return vb + (k / (1 + np.exp(-c * (x - p)))) - ((k + vb + ve) / (1 + np.exp(d * (x - q))))
+
+
+    def _fit_optimize_doubly(self, x_axis, y_axis, initial_parameters=None):
+
+        popt, _ = curve_fit(self._doubly_logistic,
+                            x_axis, y_axis,
+                            method='lm',
+                            p0=initial_parameters,  # np.array([0.5, 6, 0.2, 150, 0.23, 240]),
+                            maxfev=int(10e6),
+                            bounds=[-np.Inf, np.Inf])
+
+        self.params = popt
+
+        return popt
+
+    def execute(self, eopatch, feature, feature_mask='polygon_mask',
+                function=np.nanmedian, seeding_doy = 0,
+                harvest_doy = 0, resampling = 0):
+
+        times_doy, x, y = self._instance_inputs(eopatch, feature,
+                                                feature_mask,
+                                                function)
+
+        vb, ve, k, c, p, d, q = self._fit_optimize_doubly(x, y)
+
+        if resampling>0:
+            times_doy = np.array(range(0, 365, resampling))
+            x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
+            x[x < 0] = 0
+            x[x > 1] = 1
+            fitted = self._doubly_logistic(x, vb, ve, k, c, p, d, q)
+        else:
+            fitted = self._doubly_logistic(x, vb, ve, k, c, p, d, q)
 
         return times_doy, fitted

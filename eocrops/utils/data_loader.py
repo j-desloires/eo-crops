@@ -9,6 +9,7 @@ from eolearn.geometry import ErosionTask
 import eocrops.tasks.preprocessing as preprocessing
 import warnings
 from scipy import interpolate as interpolate
+from eocrops.tasks.vegetation_indices import VegetationIndicesS2 as s2_vis
 ###########################################################################################################
 
 class EOPatchDataset:
@@ -16,6 +17,7 @@ class EOPatchDataset:
                  root_dir, features_data,
                  suffix='', resampling = None,
                  range_doy = (1, 365),
+                 bands_name = 'BANDS-S2-L2A',
                  function=np.nanmedian):
         """
         root_dir (str) : root path where EOPatch are saved
@@ -44,6 +46,7 @@ class EOPatchDataset:
                 'You must specify a resampling periods to make your observations comparable. The default is set to ' + str(resampling))
         self.resampling = resampling
         self.function = function
+        self.bands_name = bands_name
 
         try:
             self.AUTOTUNE = tf.data.AUTOTUNE
@@ -140,18 +143,26 @@ class EOPatchDataset:
                     raise ValueError('The column ' + planting_date_column + ' is not in the meta file')
                 else:
                     range_doy[0] = meta_file_subset[planting_date_column].values[0]
+                    if np.isnan(range_doy[0]):
+                        range_doy[0] = np.nanmedian(meta_file[planting_date_column].values)
+
             if harvest_date_column is not None:
                 if harvest_date_column not in meta_file_subset.columns:
                     raise ValueError('The column ' + harvest_date_column + ' is not in the meta file')
                 else:
                     range_doy[1] = meta_file_subset[harvest_date_column].values[0]
+                    if np.isnan(range_doy[1]):
+                        range_doy[1] = np.nanmedian(meta_file[harvest_date_column].values)
 
         return range_doy
 
 
     def _read_patch(self, path, algorithm = 'linear',
-                    doubly_logistic = False, return_params = False,
-                    fit_resampling = False, meta_file = None,
+                    doubly_logistic = False,
+                    asym_gaussian = False,
+                    return_params = False,
+                    fit_resampling = False,
+                    meta_file = None,
                     path_column = None,
                     planting_date_column = None, harvest_date_column = None,
                     window_planting = 0, window_harvest = 0):
@@ -163,6 +174,10 @@ class EOPatchDataset:
             ################################################################
             #path = os.path.join(root_dir, os.listdir(root_dir)[0])
             patch = EOPatch.load(path)
+            vegetation_indices = s2_vis(feature_name=self.bands_name,
+                                        biophysical=False)
+            vegetation_indices.execute(patch)
+
             if not doubly_logistic:
                 year = str(patch.timestamp[0].year)
                 start, end = year + self.resampling['start'], year + self.resampling['end']
@@ -177,12 +192,17 @@ class EOPatchDataset:
                 range_doy = self._retrieve_range_doy(path, meta_file, list(range_doy),
                                                      path_column, planting_date_column,
                                                      harvest_date_column)
+            if doubly_logistic:
+                curve_fitting = preprocessing.DoublyLogistic(range_doy=tuple([int(range_doy[0]) - window_planting,
+                                                                                  int(range_doy[1]) + window_harvest]))
 
-            curve_fitting = preprocessing.CurveFitting(range_doy = tuple([int(range_doy[0]) - window_planting,
-                                                                          int(range_doy[1]) + window_harvest]))
+            elif asym_gaussian:
+                curve_fitting = preprocessing.AsymmetricGaussian(range_doy = tuple([int(range_doy[0]) - window_planting,
+                                                                                int(range_doy[1]) + window_harvest]))
+
             #################################################################
             data = []
-            #self = curve_fitting
+
             for feat_type, feat_name, _, dtype, _ in self.features_data:
                 if doubly_logistic:
                     if fit_resampling:
