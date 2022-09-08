@@ -304,11 +304,12 @@ class AsymmetricGaussian(CurveFitting):
             np.quantile(y_axis, 0.1),
             -np.inf,
             x_axis[0],
-            0,
-            1,
-            0,
-            1,
+            -np.inf,
+            -np.inf,
+            -np.inf,
+            -np.inf,
         ]
+
         bounds_upper = [
             np.max(y_axis),
             np.inf,
@@ -331,7 +332,7 @@ class AsymmetricGaussian(CurveFitting):
             bounds=(bounds_lower, bounds_upper),
             maxfev=10e10,
             absolute_sigma=True,
-            #method =  'trf'
+            #method =  'lm'
         )
         self.params = popt
 
@@ -403,3 +404,4 @@ class DoublyLogistic(CurveFitting):
             fitted = self._doubly_logistic(x, vb, ve, k, c, p, d, q)
 
         return times_doy, fitted
+
