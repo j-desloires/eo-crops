@@ -179,6 +179,11 @@ class InterpolateFeatures(EOTask):
 
         return eopatch
 
+from eolearn.core import FeatureType, EOTask
+from scipy.optimize import curve_fit
+import numpy as np
+import pandas as pd
+
 
 class CurveFitting(EOTask):
     def __init__(self, range_doy=None):
@@ -190,11 +195,28 @@ class CurveFitting(EOTask):
                                 feature,
                                 feature_mask='polygon_mask',
                                 function=np.nanmedian):
+        '''
+        Get aggregated time series at the object level, i.e. aggregate all pixels not masked
+        Parameters
+        ----------
+        eopatch (EOPatch) : EOPatch saved
+        feature (str) : Name of the feature
+        feature_mask (str) : Name of the boolean mask for pixels outside field boundaries
+        function (np.function) : Function to aggregate object pixels
 
+        Returns (np.array) : Aggregated 1-d time series
+        -------
+
+        '''
+
+        if feature not in  eopatch[FeatureType.DATA].keys():
+            raise ValueError("The feature name "+feature+' is not in the EOPatch')
         feature_array = eopatch[FeatureType.DATA][feature]
+
         if feature_mask not in eopatch[FeatureType.MASK_TIMELESS].keys():
             raise ValueError('The feature ' + feature_mask + " is missing in MASK_TIMELESS")
         crop_mask = eopatch[FeatureType.MASK_TIMELESS][feature_mask]
+
         # Transform mask from 3D to 4D
         times, h, w, shape = feature_array.shape
         mask = crop_mask.reshape(1, h, w, 1)
@@ -222,6 +244,16 @@ class CurveFitting(EOTask):
         return ts_mean
 
     def get_doy_period(self, eopatch):
+        '''
+        Get day of the year acquisition dates from eopatch.timestamp
+        Parameters
+        ----------
+        eopatch (EOPatch) : eopatch to read
+
+        Returns (np.array : day of the years, np.array : index of image within the season (range_doy))
+        -------
+
+        '''
 
         first_of_year = eopatch.timestamp[0].timetuple().tm_yday
         last_of_year = eopatch.timestamp[-1].timetuple().tm_yday
@@ -230,15 +262,26 @@ class CurveFitting(EOTask):
         times_ = (times - times[0]) / (times[-1] - times[0])
         times_doy = times_ * (last_of_year - first_of_year) + first_of_year
 
-        if self.range_doy is not None:
-            ids_filter = np.where((times_doy > int(self.range_doy[0])) &
-                                  (times_doy < int(self.range_doy[1])))[0]
-            #print(ids_filter)
-            return times_doy, ids_filter
-        else:
+        if self.range_doy is None:
             return times_doy
+        ids_filter = np.where((times_doy > int(self.range_doy[0])) &
+                              (times_doy < int(self.range_doy[1])))[0]
+
+        return times_doy, ids_filter
 
     def _check_range_doy(self, doy, ts_mean, length_period=8):
+        '''
+        Check if we have acquisition dates before and after the growing season
+        Parameters
+        ----------
+        doy (np.array) : acquisition dates (day of the year)
+        ts_mean (np.array) : aggregated 1-d time series from the EOPatch
+        length_period (int) : number of days between each resampled periods
+
+        Returns
+        -------
+
+        '''
         if doy[0] > self.range_doy[0]:
             nb_periods_add = int((doy[0] - self.range_doy[0]) // length_period)
             if nb_periods_add == 0:
@@ -272,6 +315,21 @@ class CurveFitting(EOTask):
     def _instance_inputs(self, eopatch, feature,
                          feature_mask='polygon_mask',
                          function=np.nanmedian):
+        '''
+        Initialize inputs to perform curve fitting
+        Parameters
+        ----------
+        eopatch (EOPatch) : EOPatch which will be processed
+        feature (str) : name of the feature to process
+        feature_mask (str) : mask name in EOPatch to subset field pixels
+        function (np.function) : function to aggregate pixels at object level
+
+        Returns (np.array : day of the year within growing season ,
+                np.array : day of the year min/max w.r.t growing season,
+                np.array : aggregated time series witihin growing season)
+        -------
+
+        '''
 
         y = self.get_time_series_profile(eopatch, feature, feature_mask, function)
 
@@ -292,10 +350,10 @@ class AsymmetricGaussian(CurveFitting):
         super().__init__(**kwargs)
 
     @staticmethod
-    def _asym_gaussian(middle, initial_value, scale, a1, a2, a3, a4, a5):
+    def _asym_gaussian(x, initial_value, scale, a1, a2, a3, a4, a5):
         return initial_value + scale * np.piecewise(
-            middle,
-            [middle < a1, middle >= a1],
+            x,
+            [x<a1, x>=a1],
             [lambda y: np.exp(-(((a1 - y) / a4) ** a5)), lambda y: np.exp(-(((y - a1) / a2) ** a3))],
         )
 
@@ -338,9 +396,26 @@ class AsymmetricGaussian(CurveFitting):
 
         return popt
 
-    def execute(self, eopatch, feature, feature_mask='polygon_mask',
-                function=np.nanmedian, seeding_doy = 0,
-                harvest_doy = 0, resampling = 0):
+    def execute(self, eopatch, feature,
+                feature_mask='polygon_mask',
+                function=np.nanmedian,
+                resampling = 0):
+        '''
+        Apply Asymmetric function to do curve fitting from aggregated time series.
+        It aims to reconstruct, smooth and extract phenological parameters from time series
+        Parameters
+        ----------
+        eopatch (EOPatch)
+        feature (str) : name of the feature to process
+        feature_mask (str) : name of the polygon mask
+        function (np.function) : function to aggregate pixels at object level
+
+        resampling (np.array : dates from reconstructed time series, np.array : aggregated time series)
+
+        Returns
+        -------
+
+        '''
 
         times_doy, x, y = self._instance_inputs(eopatch, feature,
                                                 feature_mask,
@@ -353,10 +428,8 @@ class AsymmetricGaussian(CurveFitting):
             x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
             x[x < 0] = 0
             x[x > 1] = 1
-            fitted = self._asym_gaussian(x, initial_value, scale, a1, a2, a3, a4, a5)
-        else:
-            fitted = self._asym_gaussian(x, initial_value, scale, a1, a2, a3, a4, a5)
 
+        fitted = self._asym_gaussian(x, initial_value, scale, a1, a2, a3, a4, a5)
         return times_doy, fitted
 
 
@@ -369,7 +442,6 @@ class DoublyLogistic(CurveFitting):
     @staticmethod
     def _doubly_logistic(x, vb, ve, k, c, p, d, q):
         return vb + (k / (1 + np.exp(-c * (x - p)))) - ((k + vb + ve) / (1 + np.exp(d * (x - q))))
-
 
     def _fit_optimize_doubly(self, x_axis, y_axis, initial_parameters=None):
 
@@ -384,9 +456,26 @@ class DoublyLogistic(CurveFitting):
 
         return popt
 
-    def execute(self, eopatch, feature, feature_mask='polygon_mask',
-                function=np.nanmedian, seeding_doy = 0,
-                harvest_doy = 0, resampling = 0):
+    def execute(self, eopatch, feature,
+                feature_mask='polygon_mask',
+                function=np.nanmedian,
+                resampling = 0):
+        '''
+        Apply Doubly Logistic function to do curve fitting from aggregated time series.
+        It aims to reconstruct, smooth and extract phenological parameters from time series
+        Parameters
+        ----------
+        eopatch (EOPatch)
+        feature (str) : name of the feature to process
+        feature_mask (str) : name of the polygon mask
+        function (np.function) : function to aggregate pixels at object level
+
+        resampling (np.array : dates from reconstructed time series, np.array : aggregated time series)
+
+        Returns
+        -------
+
+        '''
 
         times_doy, x, y = self._instance_inputs(eopatch, feature,
                                                 feature_mask,
@@ -399,9 +488,47 @@ class DoublyLogistic(CurveFitting):
             x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
             x[x < 0] = 0
             x[x > 1] = 1
-            fitted = self._doubly_logistic(x, vb, ve, k, c, p, d, q)
-        else:
-            fitted = self._doubly_logistic(x, vb, ve, k, c, p, d, q)
 
+        fitted = self._doubly_logistic(x, vb, ve, k, c, p, d, q)
         return times_doy, fitted
+
+
+class SmoothResampledData(DoublyLogistic, AsymmetricGaussian):
+    '''
+    Smooth resampled data from the planting date
+    '''
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _get_optimizer_function(self,  x_axis, y_axis,  algo):
+        if algo == 'doubly logistic':
+            params = self._fit_optimize_doubly(x_axis, y_axis)
+        elif algo == 'asymmetric gaussian':
+            params = self._fit_optimize_asym(x_axis, y_axis)
+        return list(params)
+
+    def _get_function(self, params, algo):
+        if algo == 'asymmetric gaussian':
+            return self._asym_gaussian(*params)
+        elif algo == 'doubly logistic':
+            return self._doubly_logistic(*params)
+
+    def smooth_feature(self, df_feat, algo='doubly logistic'):
+        if algo not in ['doubly logistic', 'asymmetric gaussian']:
+            raise ValueError("Method must be 'doubly logistic' or 'asymmetric gaussian'")
+
+        times = np.array(list(range(df_feat.shape[1])))
+        x = (times - times[0]) / (times[-1] - times[0])
+
+        df_params = df_feat.apply(lambda y: pd.Series(self._get_optimizer_function(x, y, algo)), axis=1)
+
+        df_fitted = []
+        for i in range(df_params.shape[0]):
+            params = list(df_params.iloc[i,:])
+            params.insert(0, x)
+            df_fitted.append(pd.DataFrame(self._get_function(params , algo)).T)
+
+        df_fitted = pd.concat(df_fitted, axis=0)
+
+        return df_params, df_fitted
 
