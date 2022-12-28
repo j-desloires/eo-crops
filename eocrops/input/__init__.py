@@ -1,1 +1,1 @@
-name = 'eoflow'
+name = "eoflow"

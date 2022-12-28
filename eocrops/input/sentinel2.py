@@ -18,17 +18,25 @@ import multiprocessing
 import eocrops.tasks.vegetation_indices as vegetation_indices
 import eocrops.input.utils_sh as utils_sh
 
-from eolearn.core import SaveTask, linearly_connect_tasks, EOWorkflow, FeatureType, OutputTask
+from eolearn.core import (
+    SaveTask,
+    linearly_connect_tasks,
+    EOWorkflow,
+    FeatureType,
+    OutputTask,
+)
 
 
-def workflow_instructions_S2L2A(config,
-                                time_stamp,
-                                coverage_predicate,
-                                path_out=None,
-                                polygon=None,
-                                interpolation=None,
-                                n_threads=multiprocessing.cpu_count() - 1):
-    ''' Define the request of image from sentinelhb API by defining the bbox of the field, the time period and the output desired (evalscript)
+def workflow_instructions_S2L2A(
+    config,
+    time_stamp,
+    coverage_predicate,
+    path_out=None,
+    polygon=None,
+    interpolation=None,
+    n_threads=multiprocessing.cpu_count() - 1,
+):
+    """Define the request of image from sentinelhb API by defining the bbox of the field, the time period and the output desired (evalscript)
     Sentinel-2 L2a product, available from 2017 with 5 days revisit and 10 meters resolution
     Inputs :
         - coverage_predicate (float) : upper bound of fraction of pixels contaminated by clouds. Images with higher cloud percentage will be removed
@@ -38,10 +46,10 @@ def workflow_instructions_S2L2A(config,
         - polygon (geopandas.GeoDataFrame) : input shapefile read as GeoDataFrame with one or multiple observations, each representing one field ID
         - interpolation (dictionary) : interpolate missing pixels (clouds) if True and recalibrate time series into fixed time stamp (e.g 16 days if 'period_length' = 16)
         - n_threads (int) : number of threads to download satellite images
-    '''
+    """
 
     if interpolation is None:
-        interpolation = {'interpolate': False, 'period_length': None}
+        interpolation = {"interpolate": False, "period_length": None}
 
     # Request format to download Landsat8 L2A products
     time_difference = datetime.timedelta(hours=2)
@@ -76,82 +84,95 @@ def workflow_instructions_S2L2A(config,
         }
     """
 
-    input_task =\
-        SentinelHubEvalscriptTask(
-            features=[(FeatureType.DATA, 'BANDS', 'BANDS-S2-L2A'),
-                      (FeatureType.DATA, 'ILLUMINATION', 'ILLUMINATION'),
-                      (FeatureType.MASK, 'IS_DATA'),
-                      (FeatureType.MASK, 'CLM')],
-            data_collection=DataCollection.SENTINEL2_L2A,
-            evalscript=evalscript,
-            resolution=10,
-            maxcc=coverage_predicate,
-            time_difference=time_difference,
-            config=config,
-            max_threads=n_threads
-        )
+    input_task = SentinelHubEvalscriptTask(
+        features=[
+            (FeatureType.DATA, "BANDS", "BANDS-S2-L2A"),
+            (FeatureType.DATA, "ILLUMINATION", "ILLUMINATION"),
+            (FeatureType.MASK, "IS_DATA"),
+            (FeatureType.MASK, "CLM"),
+        ],
+        data_collection=DataCollection.SENTINEL2_L2A,
+        evalscript=evalscript,
+        resolution=10,
+        maxcc=coverage_predicate,
+        time_difference=time_difference,
+        config=config,
+        max_threads=n_threads,
+    )
 
-
-    add_dem = SentinelHubDemTask('DEM', resolution=10, config=config)
+    add_dem = SentinelHubDemTask("DEM", resolution=10, config=config)
     add_polygon_mask = preprocessing.PolygonMask(polygon)
     cloud_mask = utils_sh.ValidDataS2()
 
     add_coverage = utils_sh.AddValidDataCoverage()
 
-    add_valid_mask = utils_sh.AddValidDataMaskTask(predicate=utils_sh.calculate_valid_data_mask)
+    add_valid_mask = utils_sh.AddValidDataMaskTask(
+        predicate=utils_sh.calculate_valid_data_mask
+    )
 
+    remove_cloudy_scenes = eolearn.features.SimpleFilterTask(
+        (eolearn.core.FeatureType.MASK, "VALID_DATA"),
+        utils_sh.ValidDataCoveragePredicate(coverage_predicate),
+    )
 
-    remove_cloudy_scenes = eolearn.features.SimpleFilterTask((eolearn.core.FeatureType.MASK, 'VALID_DATA'), utils_sh.ValidDataCoveragePredicate(coverage_predicate))
+    vis = vegetation_indices.VegetationIndicesS2(
+        "BANDS-S2-L2A", mask_data=bool(1 - interpolation["interpolate"])
+    )
 
+    norm = vegetation_indices.EuclideanNorm("ECNorm", "BANDS-S2-L2A")
 
-    vis = vegetation_indices.VegetationIndicesS2('BANDS-S2-L2A',
-                                                 mask_data=bool(1 - interpolation['interpolate']))
-
-
-    norm = vegetation_indices.EuclideanNorm('ECNorm', 'BANDS-S2-L2A')
-
-    if not interpolation['interpolate']:
+    if not interpolation["interpolate"]:
         linear_interp = utils_sh.EmptyTask()
 
     else:
-        if 'period_length' not in interpolation.keys():
+        if "period_length" not in interpolation.keys():
             resampled_range = None
-        elif interpolation['period_length'] is not None:
-            resampled_range = (time_stamp[0], time_stamp[1], interpolation['period_length'])
+        elif interpolation["period_length"] is not None:
+            resampled_range = (
+                time_stamp[0],
+                time_stamp[1],
+                interpolation["period_length"],
+            )
 
-        copy_features = [(FeatureType.MASK, 'CLM'),
-                         (FeatureType.DATA_TIMELESS, 'DEM'),
-                         (FeatureType.MASK_TIMELESS, 'MASK')]
+        copy_features = [
+            (FeatureType.MASK, "CLM"),
+            (FeatureType.DATA_TIMELESS, "DEM"),
+            (FeatureType.MASK_TIMELESS, "MASK"),
+        ]
 
-        linear_interp = preprocessing.InterpolateFeatures(resampled_range=resampled_range,
-                                                          copy_features=copy_features)
-
+        linear_interp = preprocessing.InterpolateFeatures(
+            resampled_range=resampled_range, copy_features=copy_features
+        )
 
     if path_out is None:
         save = utils_sh.EmptyTask()
 
     else:
         os.makedirs(path_out, exist_ok=True)
-        save = SaveTask(path_out,
-                        overwrite_permission=OverwritePermission.OVERWRITE_PATCH)
+        save = SaveTask(
+            path_out, overwrite_permission=OverwritePermission.OVERWRITE_PATCH
+        )
 
     output_task = OutputTask("eopatch")
-    workflow_nodes = linearly_connect_tasks(input_task,
-                                            cloud_mask, add_valid_mask,
-                                            add_coverage, remove_cloudy_scenes,
-                                            add_dem, add_polygon_mask,
-                                            vis, norm, linear_interp,
-                                            save, output_task)
+    workflow_nodes = linearly_connect_tasks(
+        input_task,
+        cloud_mask,
+        add_valid_mask,
+        add_coverage,
+        remove_cloudy_scenes,
+        add_dem,
+        add_polygon_mask,
+        vis,
+        norm,
+        linear_interp,
+        save,
+        output_task,
+    )
     workflow = EOWorkflow(workflow_nodes)
-    
+
     field_bbox = utils.get_bounding_box(polygon)
     result = workflow.execute(
-        {
-            workflow_nodes[0]: {
-                "bbox": field_bbox, 
-                "time_interval": time_stamp
-            }
-        }
+        {workflow_nodes[0]: {"bbox": field_bbox, "time_interval": time_stamp}}
     )
 
     return result.outputs["eopatch"]

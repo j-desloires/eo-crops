@@ -9,16 +9,21 @@ from eolearn.geometry import ErosionTask
 import eocrops.tasks.preprocessing as preprocessing
 import warnings
 from eocrops.tasks.vegetation_indices import VegetationIndicesS2 as s2_vis
+
 ###########################################################################################################
 
 
 class EOPatchDataset:
-    def __init__(self,
-                 root_dir, features_data,
-                 suffix='', resampling = None,
-                 range_doy = (1, 365),
-                 bands_name = 'BANDS-S2-L2A',
-                 function=np.nanmedian):
+    def __init__(
+        self,
+        root_dir,
+        features_data,
+        suffix="",
+        resampling=None,
+        range_doy=(1, 365),
+        bands_name="BANDS-S2-L2A",
+        function=np.nanmedian,
+    ):
         """
         root_dir (str) : root path where EOPatch are saved
         features_data (list of tuples) : features to aggregate in the dataset
@@ -30,6 +35,7 @@ class EOPatchDataset:
 
         import tensorflow as tf
         import tensorflow_datasets as tfds
+
         global tf
         global tfds
 
@@ -37,13 +43,15 @@ class EOPatchDataset:
 
         self.features_data = features_data
         self.suffix = suffix
-        self.mask = (FeatureType.MASK_TIMELESS, 'MASK')
+        self.mask = (FeatureType.MASK_TIMELESS, "MASK")
         self.range_doy = range_doy
 
         if resampling is None:
-            resampling = dict(start = '01-01', end = '12-31', day_periods = 8)
+            resampling = dict(start="01-01", end="12-31", day_periods=8)
             warnings.warn(
-                'You must specify a resampling periods to make your observations comparable. The default is set to ' + str(resampling))
+                "You must specify a resampling periods to make your observations comparable. The default is set to "
+                + str(resampling)
+            )
         self.resampling = resampling
         self.function = function
         self.bands_name = bands_name
@@ -54,32 +62,35 @@ class EOPatchDataset:
             self.AUTOTUNE = tf.data.experimental.AUTOTUNE
 
     def _instance_tf_ds(self):
-        '''
+        """
         initalize tf.data.Dataset w.r.t the file names in self.root_dir_or_list
-        '''
-        file_pattern = os.path.join(self.root_dir, '*' + self.suffix)
+        """
+        file_pattern = os.path.join(self.root_dir, "*" + self.suffix)
         files = glob.glob(file_pattern)
         if len(files) == 0:
-            raise ValueError('No file in the root directory ' + self.root_dir + " ending with " + self.suffix)
+            raise ValueError(
+                "No file in the root directory "
+                + self.root_dir
+                + " ending with "
+                + self.suffix
+            )
         files.sort()
         self.dataset = tf.data.Dataset.from_tensor_slices(files)
         self.vector_dataset = tf.data.Dataset.from_tensor_slices(files)
 
     @staticmethod
-    def _interpolate_feature(eopatch, features,  **kwargs):
-        '''
+    def _interpolate_feature(eopatch, features, **kwargs):
+        """
         Perform gapfilling over a new time window or not.
-        '''
-        kwargs['features'] = features
-        interp = preprocessing.InterpolateFeatures( **kwargs)
+        """
+        kwargs["features"] = features
+        interp = preprocessing.InterpolateFeatures(**kwargs)
         eopatch = interp.execute(eopatch)
         return eopatch
 
-
-    def _execute_gap_filling(self, eopatch,
-                             resampled_range,
-                             copy_features,
-                             algorithm = 'linear'):
+    def _execute_gap_filling(
+        self, eopatch, resampled_range, copy_features, algorithm="linear"
+    ):
 
         """
         Gap-filling to interpolate missing pixels and/or resample time series
@@ -94,19 +105,22 @@ class EOPatchDataset:
         -------
 
         """
-        kwargs = dict(copy_features=copy_features,
-                      resampled_range=resampled_range,
-                      algorithm = algorithm)
+        kwargs = dict(
+            copy_features=copy_features,
+            resampled_range=resampled_range,
+            algorithm=algorithm,
+        )
 
         features = [
-            (FeatureType.DATA, fname)
-            for ftype, fname, _, _, _ in self.features_data
+            (FeatureType.DATA, fname) for ftype, fname, _, _, _ in self.features_data
         ]
 
         return self._interpolate_feature(eopatch=eopatch, features=features, **kwargs)
 
-    def _prepare_eopatch(self, patch, resampled_range, algorithm = 'linear', disk_radius = 1):
-        '''
+    def _prepare_eopatch(
+        self, patch, resampled_range, algorithm="linear", disk_radius=1
+    ):
+        """
         Preprocess EOPatch (making pixels, gap filling and temporal resampling)
         Parameters
         ----------
@@ -118,14 +132,14 @@ class EOPatchDataset:
         Returns EOPatch
         -------
 
-        '''
-        if algorithm not in ['linear', 'cubic']:
+        """
+        if algorithm not in ["linear", "cubic"]:
             raise ValueError('Algorithm can only be "linear" of "cubic"')
 
-        polygon_mask = (patch.data_timeless['FIELD_ID']>0).astype(np.int32)
+        polygon_mask = (patch.data_timeless["FIELD_ID"] > 0).astype(np.int32)
         add_feature = AddFeatureTask(self.mask)
         add_feature.execute(eopatch=patch, data=polygon_mask.astype(bool))
-        #patch.add_feature(self.mask[0], self.mask[1], polygon_mask.astype(bool))
+        # patch.add_feature(self.mask[0], self.mask[1], polygon_mask.astype(bool))
 
         erode = ErosionTask(mask_feature=self.mask, disk_radius=disk_radius)
         erode.execute(patch)
@@ -133,16 +147,24 @@ class EOPatchDataset:
         add_vis = s2_vis(biophysical=False, feature_name=self.bands_name)
         add_vis.execute(eopatch=patch)
 
-        patch = self._execute_gap_filling(eopatch=patch,
-                                          resampled_range=resampled_range,
-                                          algorithm=algorithm,
-                                          copy_features=[self.mask])
+        patch = self._execute_gap_filling(
+            eopatch=patch,
+            resampled_range=resampled_range,
+            algorithm=algorithm,
+            copy_features=[self.mask],
+        )
         return patch
 
     @staticmethod
-    def _retrieve_range_doy(path, meta_file, range_doy, path_column,
-                            planting_date_column, harvest_date_column):
-        '''
+    def _retrieve_range_doy(
+        path,
+        meta_file,
+        range_doy,
+        path_column,
+        planting_date_column,
+        harvest_date_column,
+    ):
+        """
         Get for each EOPatch the start and end of the season.
 
         Parameters
@@ -157,38 +179,49 @@ class EOPatchDataset:
         Returns (tuple)  start of the season and the end of the season.
         -------
 
-        '''
+        """
 
         meta_file_subset = meta_file[meta_file[path_column] == path]
         if meta_file_subset.shape[0] == 0:
-            raise ValueError('We cannot find a correspond path for the patch in the meta file')
+            raise ValueError(
+                "We cannot find a correspond path for the patch in the meta file"
+            )
         if planting_date_column is not None:
             if planting_date_column not in meta_file_subset.columns:
-                raise ValueError(f'The column {planting_date_column} is not in the meta file')
+                raise ValueError(
+                    f"The column {planting_date_column} is not in the meta file"
+                )
             range_doy[0] = meta_file_subset[planting_date_column].values[0]
             if np.isnan(range_doy[0]):
                 range_doy[0] = np.nanmedian(meta_file[planting_date_column].values)
 
         if harvest_date_column is not None:
             if harvest_date_column not in meta_file_subset.columns:
-                raise ValueError(f'The column {harvest_date_column} is not in the meta file')
+                raise ValueError(
+                    f"The column {harvest_date_column} is not in the meta file"
+                )
             range_doy[1] = meta_file_subset[harvest_date_column].values[0]
             if np.isnan(range_doy[1]):
                 range_doy[1] = np.nanmedian(meta_file[harvest_date_column].values)
 
         return range_doy
 
+    def _read_patch(
+        self,
+        path,
+        algorithm="linear",
+        doubly_logistic=False,
+        asym_gaussian=False,
+        return_params=False,
+        meta_file=None,
+        path_column=None,
+        planting_date_column=None,
+        harvest_date_column=None,
+        window_planting=0,
+        window_harvest=0,
+    ):
 
-    def _read_patch(self, path, algorithm = 'linear',
-                    doubly_logistic = False,
-                    asym_gaussian = False,
-                    return_params = False,
-                    meta_file = None,
-                    path_column = None,
-                    planting_date_column = None, harvest_date_column = None,
-                    window_planting = 0, window_harvest = 0):
-
-        '''
+        """
         Read and preprocess EOPatch given a path.
         Asymmetric and logistic function can be fitted (https://www.sciencedirect.com/science/article/abs/pii/S0034425712001629)
 
@@ -209,37 +242,46 @@ class EOPatchDataset:
         Returns (np.arrray) : 3D np.array (1, t, d) ~ EOPatch resampled
         -------
 
-        '''
+        """
+
         def _func(path):
-            path = path.numpy().decode('utf-8')
+            path = path.numpy().decode("utf-8")
             # Load only relevant features
             ################################################################
-            #path = os.path.join(root_dir, os.listdir(root_dir)[0])
+            # path = os.path.join(root_dir, os.listdir(root_dir)[0])
             patch = EOPatch.load(path)
 
             if doubly_logistic or asym_gaussian:
                 resampled_range = None
             else:
                 year = str(patch.timestamp[0].year)
-                start, end = '{0}-{1}'.format(year, self.resampling['start']),\
-                                 '{0}-{1}'.format(year, self.resampling['end'])
-                resampled_range = (start, end, self.resampling['day_periods'])
+                start, end = "{0}-{1}".format(
+                    year, self.resampling["start"]
+                ), "{0}-{1}".format(year, self.resampling["end"])
+                resampled_range = (start, end, self.resampling["day_periods"])
 
             patch = self._prepare_eopatch(patch, resampled_range, algorithm)
             range_doy = self.range_doy
 
             if meta_file is not None:
-                range_doy = self._retrieve_range_doy(path, meta_file, list(range_doy),
-                                                     path_column, planting_date_column,
-                                                     harvest_date_column)
+                range_doy = self._retrieve_range_doy(
+                    path,
+                    meta_file,
+                    list(range_doy),
+                    path_column,
+                    planting_date_column,
+                    harvest_date_column,
+                )
 
-            range_doy = int(range_doy[0]) - window_planting, int(range_doy[1]) + window_harvest
+            range_doy = (
+                int(range_doy[0]) - window_planting,
+                int(range_doy[1]) + window_harvest,
+            )
 
-
-            curve_fitting = preprocessing.DoublyLogistic(range_doy = range_doy)
+            curve_fitting = preprocessing.DoublyLogistic(range_doy=range_doy)
 
             if asym_gaussian:
-                curve_fitting = preprocessing.AsymmetricGaussian(range_doy = range_doy)
+                curve_fitting = preprocessing.AsymmetricGaussian(range_doy=range_doy)
 
             #################################################################
             data = []
@@ -247,12 +289,14 @@ class EOPatchDataset:
             for feat_type, feat_name, _, dtype, _ in self.features_data:
                 if doubly_logistic or asym_gaussian:
 
-                    resampling = self.resampling['day_periods']
+                    resampling = self.resampling["day_periods"]
 
-                    doy, arr = curve_fitting.execute(eopatch = patch,
-                                                     feature=feat_name,
-                                                     feature_mask=self.mask[-1],
-                                                     resampling=resampling)
+                    doy, arr = curve_fitting.execute(
+                        eopatch=patch,
+                        feature=feat_name,
+                        feature_mask=self.mask[-1],
+                        resampling=resampling,
+                    )
 
                     params = curve_fitting.params
                     if return_params:
@@ -260,10 +304,12 @@ class EOPatchDataset:
                     else:
                         data.append(arr)
                 else:
-                    arr = curve_fitting.get_time_series_profile(eopatch=patch,
-                                                                feature=feat_name,
-                                                                feature_mask=self.mask[-1],
-                                                                function=self.function)
+                    arr = curve_fitting.get_time_series_profile(
+                        eopatch=patch,
+                        feature=feat_name,
+                        feature_mask=self.mask[-1],
+                        function=self.function,
+                    )
                     data.append(arr)
 
             return data
@@ -281,7 +327,7 @@ class EOPatchDataset:
         return out_data
 
     def _read_vector_data(self, path, column_path, vector_data, features_list):
-        '''
+        """
         Subset the vector file to match each EOPatch
 
         Parameters
@@ -293,10 +339,10 @@ class EOPatchDataset:
         Returns (np.array) : np.array from the input file
         -------
 
-        '''
+        """
 
         def _func(path):
-            path = path.numpy().decode('utf-8')
+            path = path.numpy().decode("utf-8")
             vector_data_ = vector_data.copy()
             vector_data_ = vector_data_[vector_data_[column_path] == path]
 
@@ -314,25 +360,34 @@ class EOPatchDataset:
 
     @staticmethod
     def _format_feature(out_feature):
-        out_df = [np.concatenate([np.expand_dims(value, axis=1)
-                                  if len(value.shape) == 1 else value
-                                  for key, value in dicto.items()], axis=-1)
-                  for dicto in out_feature]
+        out_df = [
+            np.concatenate(
+                [
+                    np.expand_dims(value, axis=1) if len(value.shape) == 1 else value
+                    for key, value in dicto.items()
+                ],
+                axis=-1,
+            )
+            for dicto in out_feature
+        ]
 
         out_df = [np.expand_dims(k, axis=0) for k in out_df]
         return np.concatenate(out_df, axis=0)
 
-    def get_eopatch_tfds(self, algorithm = 'linear',
-                         doubly_logistic = False,
-                         asym_gaussian = False,
-                         return_params = False,
-                         meta_file=None,
-                         path_column=None,
-                         planting_date_column=None,
-                         harvest_date_column=None,
-                         window_planting = 0, window_harvest = 0
-                         ):
-        '''
+    def get_eopatch_tfds(
+        self,
+        algorithm="linear",
+        doubly_logistic=False,
+        asym_gaussian=False,
+        return_params=False,
+        meta_file=None,
+        path_column=None,
+        planting_date_column=None,
+        harvest_date_column=None,
+        window_planting=0,
+        window_harvest=0,
+    ):
+        """
 
         Parameters
         ----------
@@ -350,28 +405,30 @@ class EOPatchDataset:
         Returns Returns (np.arrray) : 3D np.array (N, t, d) ~ EOPatch aggregated and resampled into the same np.array
         -------
 
-        '''
-
+        """
 
         self._instance_tf_ds()
-        ds_numpy = self.dataset.map(lambda x : self._read_patch(path = x,
-                                                                algorithm=algorithm,
-                                                                doubly_logistic = doubly_logistic,
-                                                                asym_gaussian = asym_gaussian,
-                                                                return_params=return_params,
-                                                                meta_file=meta_file,
-                                                                path_column=path_column,
-                                                                planting_date_column=planting_date_column,
-                                                                harvest_date_column=harvest_date_column,
-                                                                window_planting = window_planting,
-                                                                window_harvest=window_harvest
-                                                                ),
-                                    num_parallel_calls=self.AUTOTUNE)
+        ds_numpy = self.dataset.map(
+            lambda x: self._read_patch(
+                path=x,
+                algorithm=algorithm,
+                doubly_logistic=doubly_logistic,
+                asym_gaussian=asym_gaussian,
+                return_params=return_params,
+                meta_file=meta_file,
+                path_column=path_column,
+                planting_date_column=planting_date_column,
+                harvest_date_column=harvest_date_column,
+                window_planting=window_planting,
+                window_harvest=window_harvest,
+            ),
+            num_parallel_calls=self.AUTOTUNE,
+        )
         out_feature = list(ds_numpy)
         return self._format_feature(out_feature)
 
     def get_vector_tfds(self, vector_data, features_list, column_path):
-        '''
+        """
         Read the vector file into a numpy array.
         Each observation will match the eopatch_tfds and will be converted into a np.array
         Parameters
@@ -383,13 +440,17 @@ class EOPatchDataset:
         Returns (np.array) : np.array from the input file
         -------
 
-        '''
+        """
 
         self._instance_tf_ds()
-        out_labels = list(self.vector_dataset.map(
-            lambda path : self._read_vector_data(
-                path, column_path, vector_data, features_list),
-            num_parallel_calls=self.AUTOTUNE))
+        out_labels = list(
+            self.vector_dataset.map(
+                lambda path: self._read_vector_data(
+                    path, column_path, vector_data, features_list
+                ),
+                num_parallel_calls=self.AUTOTUNE,
+            )
+        )
 
         npy_labels = self._format_feature(out_labels)
         npy_labels = npy_labels.reshape(npy_labels.shape[0], npy_labels.shape[-1])
