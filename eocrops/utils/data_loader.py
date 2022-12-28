@@ -130,8 +130,8 @@ class EOPatchDataset:
         erode = ErosionTask(mask_feature=self.mask, disk_radius=disk_radius)
         erode.execute(patch)
 
-        add_vis = s2_vis(biophysical=False)
-        add_vis.execute(patch)
+        add_vis = s2_vis(biophysical=False, feature_name=self.bands_name)
+        add_vis.execute(eopatch=patch)
 
         patch = self._execute_gap_filling(eopatch=patch,
                                           resampled_range=resampled_range,
@@ -164,14 +164,14 @@ class EOPatchDataset:
             raise ValueError('We cannot find a correspond path for the patch in the meta file')
         if planting_date_column is not None:
             if planting_date_column not in meta_file_subset.columns:
-                raise ValueError('The column ' + planting_date_column + ' is not in the meta file')
+                raise ValueError(f'The column {planting_date_column} is not in the meta file')
             range_doy[0] = meta_file_subset[planting_date_column].values[0]
             if np.isnan(range_doy[0]):
                 range_doy[0] = np.nanmedian(meta_file[planting_date_column].values)
 
         if harvest_date_column is not None:
             if harvest_date_column not in meta_file_subset.columns:
-                raise ValueError('The column ' + harvest_date_column + ' is not in the meta file')
+                raise ValueError(f'The column {harvest_date_column} is not in the meta file')
             range_doy[1] = meta_file_subset[harvest_date_column].values[0]
             if np.isnan(range_doy[1]):
                 range_doy[1] = np.nanmedian(meta_file[harvest_date_column].values)
@@ -222,7 +222,7 @@ class EOPatchDataset:
             else:
                 year = str(patch.timestamp[0].year)
                 start, end = '{0}-{1}'.format(year, self.resampling['start']),\
-                             '{0}-{1}'.format(year, self.resampling['end'])
+                                 '{0}-{1}'.format(year, self.resampling['end'])
                 resampled_range = (start, end, self.resampling['day_periods'])
 
             patch = self._prepare_eopatch(patch, resampled_range, algorithm)
@@ -233,8 +233,8 @@ class EOPatchDataset:
                                                      path_column, planting_date_column,
                                                      harvest_date_column)
 
-            range_doy = tuple([int(range_doy[0]) - window_planting,
-                               int(range_doy[1]) + window_harvest])
+            range_doy = int(range_doy[0]) - window_planting, int(range_doy[1]) + window_harvest
+
 
             curve_fitting = preprocessing.DoublyLogistic(range_doy = range_doy)
 
@@ -395,6 +395,3 @@ class EOPatchDataset:
         npy_labels = npy_labels.reshape(npy_labels.shape[0], npy_labels.shape[-1])
 
         return npy_labels
-
-
-

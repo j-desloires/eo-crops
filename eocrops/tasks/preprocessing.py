@@ -9,6 +9,7 @@ from eolearn.geometry.morphology import ErosionTask
 
 from scipy.optimize import curve_fit
 import numpy as np
+import pandas as pd
 from eolearn.core import RemoveFeatureTask
 
 
