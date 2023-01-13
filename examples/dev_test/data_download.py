@@ -7,13 +7,9 @@ from scipy.signal import savgol_filter
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
-from eolearn.core import FeatureType
-
+import eocrops
 from eocrops.input import utils_sh as utils_sh
-from eocrops.input import sentinel1 as sentinel1
 from eocrops.input import sentinel2 as sentinel2
-from eocrops.tasks import cmd_otb as cmd_otb
 from eocrops.tasks import preprocessing as preprocessing
 
 dir_path = os.path.dirname(os.getcwd())
