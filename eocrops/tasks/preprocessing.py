@@ -15,6 +15,9 @@ import numpy as np
 import pandas as pd
 from eolearn.core import RemoveFeatureTask
 
+from scipy.optimize import curve_fit
+
+
 
 class PolygonMask(EOTask):
     """
@@ -192,12 +195,6 @@ class InterpolateFeatures(EOTask):
             remove_feature.execute(eopatch)
 
         return eopatch
-
-
-from eolearn.core import FeatureType, EOTask
-from scipy.optimize import curve_fit
-import numpy as np
-import pandas as pd
 
 
 class CurveFitting(EOTask):
