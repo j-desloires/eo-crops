@@ -31,7 +31,7 @@ jupyter notebook
 
 You should have OrfeoToolBox installed (https://www.orfeo-toolbox.org/CookBook/Installation.html) if you would like to apply pansharpening and multitemporal speckle filtering (Quegan). 
 
-Also, you should have a Sentinelhub account with credentials. The latter can be sponsored using Network of Resources program https://www.sentinel-hub.com/Network-of-Resources/.
+Also, you should have a Sentinelhub account with credentials. The latter can be sponsored using [Network of Resources program](https://nor-discover.cloudeo.group/Service/EDC-Sentinel-Hub/SponsoringWizardPricelist)
 
 # Citation
 
