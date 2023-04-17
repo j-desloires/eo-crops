@@ -23,6 +23,9 @@ from eolearn.core import RemoveFeatureTask
 from eolearn.core import FeatureType, EOTask
 from scipy.optimize import curve_fit
 
+from scipy.optimize import curve_fit
+
+
 
 class PolygonMask(EOTask):
     """
@@ -202,8 +205,8 @@ class InterpolateFeatures(EOTask):
         return eopatch
 
 
-class CurveFitting:
-    def __init__(self, range_doy=(1, 365)):
+class CurveFitting(EOTask):
+    def __init__(self, range_doy=None):
         self.range_doy = range_doy
         self.params = None
 

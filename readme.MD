@@ -1,3 +1,4 @@
+
 ![python](https://img.shields.io/badge/python-3.9-blue?)
 
 <div align="center">
@@ -7,7 +8,8 @@
 🌾 **Python library for crop monitoring using Earth Observations**🛰
 
 
-Small python module that brings together awesome functionality from Sentinelhub, eo-learn python package and OrfeoToolBox for basic downloading and data processing.
+A small python module that brings together the features of SentinelHub, the eo-learn python library and OrfeoToolBox for basic downloading and processing of Earth observation data for crop monitoring. 
+
 
 # Installation
 
@@ -39,7 +41,7 @@ jupyter notebook
 
 You should have OrfeoToolBox installed (https://www.orfeo-toolbox.org/CookBook/Installation.html) if you would like to apply pansharpening and multitemporal speckle filtering (Quegan). 
 
-Also, you should have a Sentinelhub account with credentials. The latter can be sponsored using Network of Resources program https://www.sentinel-hub.com/Network-of-Resources/.
+Also, you should have a Sentinelhub account with credentials. The latter can be sponsored using [Network of Resources program](https://nor-discover.cloudeo.group/Service/EDC-Sentinel-Hub/SponsoringWizardPricelist)
 
 # Citation
 
