@@ -7,6 +7,7 @@
 
 🌾 **Python library for crop monitoring using Earth Observations**🛰
 
+</div>
 
 A small python module that brings together the features of SentinelHub, the eo-learn python library and OrfeoToolBox for basic downloading and processing of Earth observation data for crop monitoring. 
 
