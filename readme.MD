@@ -3,7 +3,7 @@
 
 <div align="center">
 
-![logo](doc/s2_agriculture.jpg)
+![logo](doc/s2_agriculture.jpg | width=100)
 
 🌾 **Python library for crop monitoring using Earth Observations**🛰
 
