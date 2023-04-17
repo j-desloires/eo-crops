@@ -26,7 +26,6 @@ from scipy.optimize import curve_fit
 from scipy.optimize import curve_fit
 
 
-
 class PolygonMask(EOTask):
     """
     EOTask that performs rasterization from an input shapefile into :
@@ -49,7 +48,6 @@ class PolygonMask(EOTask):
         self.geodataframe = geodataframe
 
     def execute(self, eopatch):
-
         # Check CRS and transform into UTM
         self.geodataframe = utils.check_crs(self.geodataframe)
 
@@ -153,7 +151,6 @@ class InterpolateFeatures(EOTask):
         self.copy_features = copy_features
 
     def _interpolate_feature(self, eopatch, features, mask_feature):
-
         kwargs = dict(
             mask_feature=mask_feature,
             resample_range=self.resampled_range,
@@ -172,7 +169,6 @@ class InterpolateFeatures(EOTask):
         return eopatch
 
     def execute(self, eopatch):
-
         """Gap filling after data extraction, very useful if did not include it in the data extraction workflow"""
 
         mask_feature = None
@@ -815,18 +811,18 @@ class FourrierDiscrete(CurveFitting):
         return ret
 
     def fit_fourier(self, x_axis, y_axis, new_x):
-        '''
+        """
         Other version of fourier, but we should focus on hants instead
-        '''
+        """
         x_axis, y_axis = self._clean_data(x_axis, y_axis)
         popt, _ = curve_fit(self._fourier, x_axis[:, 0], y_axis[:, 0], [1.0] * 5)
         self.params = popt
         return self._fourier(new_x, *popt)
 
     def fit_hants(self, x_axis, y_axis, new_x):
-        '''
+        """
         Harmonic analysis of Time Series
-        '''
+        """
         x_axis, y_axis = self._clean_data(x_axis, y_axis)
 
         popt, _ = curve_fit(
@@ -922,4 +918,3 @@ class FourrierDiscrete(CurveFitting):
         )
 
         return corrected_doy_d, smoothed_y
-

@@ -14,7 +14,6 @@ class VegetationPPI:
         self.name = name
 
     def execute(self, shapefile):
-
         byoc = DataCollection.define_byoc(
             collection_id="67c73156-095d-4f53-8a09-9ddf3848fbb6",
             name=self.name,

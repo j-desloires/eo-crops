@@ -243,7 +243,6 @@ class DownloadVHRSSentinelHub:
         output = {}
 
         if provider[0] == "AIRBUS":
-
             output["data"] = [
                 {
                     "constellation": provider[1],
@@ -252,7 +251,6 @@ class DownloadVHRSSentinelHub:
             ]
 
         elif provider[0] == "PLANET":
-
             output["data"] = [
                 {
                     "itemType": provider[1],
@@ -534,7 +532,6 @@ def get_evalscript(provider):
         """
 
     elif provider[0] == "AIRBUS":
-
         evalscript_byoc = """
         function setup() {
             return {

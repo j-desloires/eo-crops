@@ -91,7 +91,6 @@ class EOPatchDataset:
     def _execute_gap_filling(
         self, eopatch, resampled_range, copy_features, algorithm="linear"
     ):
-
         """
         Gap-filling to interpolate missing pixels and/or resample time series
         Parameters
@@ -220,7 +219,6 @@ class EOPatchDataset:
         window_planting=0,
         window_harvest=0,
     ):
-
         """
         Read and preprocess EOPatch given a path.
         Asymmetric and logistic function can be fitted (https://www.sciencedirect.com/science/article/abs/pii/S0034425712001629)
@@ -288,7 +286,6 @@ class EOPatchDataset:
 
             for feat_type, feat_name, _, dtype, _ in self.features_data:
                 if doubly_logistic or asym_gaussian:
-
                     resampling = self.resampling["day_periods"]
 
                     doy, arr = curve_fitting.execute(

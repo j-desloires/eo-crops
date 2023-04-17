@@ -100,7 +100,6 @@ class MultitempSpeckleFiltering(EOTask):
         export.execute(eopatch)
 
     def execute(self, eopatch, ram=8):
-
         if os.path.exists(os.path.join(self.path_in, "S1_VV")):
             shutil.rmtree(os.path.join(self.path_in, "S1_VV"))
             shutil.rmtree(os.path.join(self.path_in, "S1_VH"))
@@ -115,7 +114,6 @@ class MultitempSpeckleFiltering(EOTask):
 
         ########################################################################################################
         for pol in ["VV", "VH"]:
-
             infiles, outdir, outfiles = self._apply_OTB_cmd(pol, ram)
             ##########################################################################
             reference_file = infiles[0]
@@ -184,7 +182,6 @@ class PanSharpening(EOTask):
     def _extracted_from__save_temporary_geotiff(
         self, date, i, eopatch, band_indices=None
     ):
-
         if band_indices is None:
             band_indices = list(range(4))
 
@@ -205,7 +202,6 @@ class PanSharpening(EOTask):
         export.execute(eopatch)
 
     def _apply_OTB_cmd(self, date):
-
         cm = [
             os.path.join(self.otb_path, "otbcli_Pansharpening"),
             "-inp",
@@ -225,7 +221,6 @@ class PanSharpening(EOTask):
         shutil.rmtree(self.path_temporary_files)
 
     def execute(self, eopatch, band_indices=None):
-
         times = list(eopatch.timestamp)
 
         pan_bands = []

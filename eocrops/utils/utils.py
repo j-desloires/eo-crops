@@ -65,7 +65,6 @@ def get_bounding_box(shapefile):
 
 
 def create_polygon_bbox(longitude, latitude, distance):
-
     r_earth = 6378
     dx = distance / 1000
     dy = distance / 1000

@@ -35,6 +35,7 @@ class VegetationIndicesVHRS(EOTask):
 
         return eopatch
 
+
 class BiophysicalIndices:
     def __init__(
         self,
@@ -947,7 +948,7 @@ class VegetationIndicesS2(EOTask):
         self.fapar = biopysicial_parameters.get_fapar()
         self.LAI = biopysicial_parameters.get_lai()
         self.CCC = biopysicial_parameters.get_cab()
-        self.Cab = self.CCC/self.LAI
+        self.Cab = self.CCC / self.LAI
         self.CCW = biopysicial_parameters.get_cw()
         self.CW = self.CCW / self.LAI
         self.fcover = biopysicial_parameters.get_fcover()
@@ -1030,13 +1031,11 @@ class VegetationIndicesS2(EOTask):
         add_NDVIre = AddFeatureTask((FeatureType.DATA, "NDVIre"))
         add_NDVIre.execute(eopatch=eopatch, data=self.NDVIre[..., np.newaxis])
 
-
         if "ILLUMINATION" in eopatch.data.keys():
             remove_task = RemoveFeatureTask((FeatureType.DATA, "ILLUMINATION"))
             remove_task.execute(eopatch)
 
         return eopatch
-
 
 
 class EuclideanNorm(EOTask):

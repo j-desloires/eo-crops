@@ -84,7 +84,6 @@ class WeatherDownload:
         return jobIDs
 
     async def _get_request_from_jobID(self, jobID, sleep=1, limit=5):
-
         await asyncio.sleep(sleep)
         # limit amount of simultaneously opened connections you can pass limit parameter to connector
         conn = aiohttp.TCPConnector(limit=limit, ttl_dns_cache=300)
