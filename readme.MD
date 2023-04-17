@@ -1,4 +1,10 @@
-Earth observations for crop monitoring. 
+![python](https://img.shields.io/badge/python-3.9-blue?)
+
+<div align="center">
+
+![logo](doc/s2_agriculture.jpg)
+
+🌾 **Python library for crop monitoring using Earth Observations**🛰
 
 
 Small python module that brings together awesome functionality from Sentinelhub, eo-learn python package and OrfeoToolBox for basic downloading and data processing.

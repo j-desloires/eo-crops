@@ -1,19 +1,27 @@
+import copy
+import sentinelhub
+
+import numpy as np
+import pandas as pd
+
 from eolearn.geometry import VectorToRasterTask
 from eolearn.core import FeatureType, EOTask
-import sentinelhub
+
+
 from eolearn.features.interpolation import (
     LinearInterpolationTask,
     CubicInterpolationTask,
 )
-import copy
+
 
 import eocrops.utils.utils as utils
 from eolearn.geometry.morphology import ErosionTask
 
 from scipy.optimize import curve_fit
-import numpy as np
-import pandas as pd
+
 from eolearn.core import RemoveFeatureTask
+from eolearn.core import FeatureType, EOTask
+from scipy.optimize import curve_fit
 
 
 class PolygonMask(EOTask):
@@ -194,19 +202,29 @@ class InterpolateFeatures(EOTask):
         return eopatch
 
 
-from eolearn.core import FeatureType, EOTask
-from scipy.optimize import curve_fit
-import numpy as np
-import pandas as pd
-
-
-class CurveFitting(EOTask):
-    def __init__(self, range_doy=None):
+class CurveFitting:
+    def __init__(self, range_doy=(1, 365)):
         self.range_doy = range_doy
         self.params = None
 
+    @staticmethod
+    def _reformat_arrays(x, y):
+        x = np.array(x)
+        if len(x.shape) < 2:
+            x = x.reshape(x.shape[0], 1)
+        y = np.array(y)
+        if len(y.shape) < 2:
+            y = y.reshape(y.shape[0], 1)
+        return x, y
+
     def get_time_series_profile(
-        self, eopatch, feature, feature_mask="polygon_mask", function=np.nanmedian
+        self,
+        eopatch,
+        feature,
+        feature_mask="polygon_mask",
+        function=np.nanmedian,
+        threshold=None,
+        resampling=None,
     ):
         """
         Get aggregated time series at the object level, i.e. aggregate all pixels not masked
@@ -224,39 +242,44 @@ class CurveFitting(EOTask):
 
         if feature not in eopatch[FeatureType.DATA].keys():
             raise ValueError("The feature name " + feature + " is not in the EOPatch")
+
         feature_array = eopatch[FeatureType.DATA][feature]
 
         if feature_mask not in eopatch[FeatureType.MASK_TIMELESS].keys():
             raise ValueError(
-                "The feature " + feature_mask + " is missing in MASK_TIMELESS"
+                "The feature {0} is missing in MASK_TIMELESS".format(feature_mask)
             )
         crop_mask = eopatch[FeatureType.MASK_TIMELESS][feature_mask]
 
         # Transform mask from 3D to 4D
         times, h, w, shape = feature_array.shape
         mask = crop_mask.reshape(1, h, w, 1)
-        mask = [mask for k in range(times)]
+        mask = [mask for _ in range(times)]
         mask = np.concatenate(mask, axis=0)
         #######################
-        mask = [mask for k in range(shape)]
+        mask = [mask for _ in range(shape)]
         mask = np.concatenate(mask, axis=-1)
         ########################
         a = np.ma.array(feature_array, mask=np.invert(mask))
         ts_mean = np.ma.apply_over_axes(function, a, [1, 2])
         ts_mean = ts_mean.reshape(ts_mean.shape[0], ts_mean.shape[-1])
-        if self.range_doy is not None:
-            _, ids_filter = self.get_doy_period(eopatch)
 
-            ts_mean[: ids_filter[0]] = 0.2
-            ts_mean[ids_filter[-1] :] = 0.2
+        # Thresholding time series values before and after the season
+        doy, ids_filter = self.get_doy_period(eopatch)
+        if self.range_doy is not None and threshold:
+            ts_mean[: ids_filter[0]] = threshold
+            ts_mean[ids_filter[-1] :] = threshold
 
-        ########################
         # Replace nas values with nearest valid value
-        valid_values = np.where(~np.isnan(ts_mean))[0]
-        ts_mean[: valid_values[0]] = ts_mean[valid_values[0]]
-        ts_mean[valid_values[-1] :] = ts_mean[valid_values[-1]]
+        nans, x = self._nan_helper(ts_mean)
+        ts_mean[nans] = np.interp(x(nans), x(~nans), ts_mean[~nans])
 
-        return ts_mean
+        if resampling:
+            cs = Akima1DInterpolator(doy, ts_mean)
+            doy = np.arange(1, 365, resampling)
+            ts_mean = cs(doy)
+
+        return doy, ts_mean
 
     def get_doy_period(self, eopatch):
         """
@@ -285,54 +308,13 @@ class CurveFitting(EOTask):
 
         return times_doy, ids_filter
 
-    def _check_range_doy(self, doy, ts_mean, length_period=8):
-        """
-        Check if we have acquisition dates before and after the growing season
-        Parameters
-        ----------
-        doy (np.array) : acquisition dates (day of the year)
-        ts_mean (np.array) : aggregated 1-d time series from the EOPatch
-        length_period (int) : number of days between each resampled periods
-
-        Returns
-        -------
-
-        """
-        if doy[0] > self.range_doy[0]:
-            nb_periods_add = int((doy[0] - self.range_doy[0]) // length_period)
-            if nb_periods_add == 0:
-                nb_periods_add += 1
-            doy_add = [
-                doy[0] - nb_periods_add * i for i in range(1, nb_periods_add + 1)
-            ]
-            doy_add.sort()
-
-            doy = np.concatenate([doy_add, doy], axis=0)
-            ts_add = [ts_mean[0] * 0.5 / i for i in range(1, nb_periods_add + 1)]  #
-            ts_add.sort()
-            ts_mean = np.concatenate([ts_add, ts_mean], axis=0)
-
-        if doy[-1] < self.range_doy[1]:
-            nb_periods_add = int((self.range_doy[-1] - doy[-1]) // length_period)
-            if nb_periods_add == 0:
-                nb_periods_add += 1
-            doy_add = [
-                doy[-1] + nb_periods_add * i for i in range(1, nb_periods_add + 1)
-            ]
-            doy_add.sort()
-
-            doy = np.concatenate([doy, doy_add], axis=0)
-            ts_add = [ts_mean[-1] * 0.5 / i for i in range(1, nb_periods_add + 1)]
-            ts_add.sort()
-            ts_mean = np.concatenate([ts_add, ts_mean], axis=0)
-
-        ts_mean[0] = 0.2
-        ts_mean[-1] = 0.2
-
-        return doy, ts_mean.flatten()
-
     def _instance_inputs(
-        self, eopatch, feature, feature_mask="polygon_mask", function=np.nanmedian
+        self,
+        eopatch,
+        feature,
+        feature_mask="polygon_mask",
+        function=np.nanmedian,
+        threshold=0.2,
     ):
         """
         Initialize inputs to perform curve fitting
@@ -350,17 +332,188 @@ class CurveFitting(EOTask):
 
         """
 
-        y = self.get_time_series_profile(eopatch, feature, feature_mask, function)
-
-        if self.range_doy is not None:
-            times_doy, _ = self.get_doy_period(eopatch)
-        else:
-            times_doy = self.get_doy_period(eopatch)
+        times_doy, y = self.get_time_series_profile(
+            eopatch, feature, feature_mask, function
+        )
 
         x = (times_doy - self.range_doy[0]) / (self.range_doy[-1] - self.range_doy[0])
         ids = np.where(((x > 0) & (x < 1)))[0]
 
-        return times_doy[ids], x[ids], y.flatten()[ids]
+        times_doy_idx = list(times_doy[ids])
+        x_idx = list(x[ids])
+        y_idx = list(y.flatten()[ids])
+
+        if times_doy_idx[0] > self.range_doy[0]:
+            times_doy_idx.insert(0, self.range_doy[0])
+            x_idx.insert(0, 0.0)
+            y_idx.insert(0, threshold)
+
+        if times_doy_idx[-1] < self.range_doy[-1]:
+            times_doy_idx.append(self.range_doy[-1])
+            x_idx.append(1.0)
+            y_idx.append(threshold)
+
+        x_idx = np.array(x_idx)
+        times_doy_idx, y_idx = self._reformat_arrays(times_doy_idx, y_idx)
+
+        return times_doy_idx, x_idx, y_idx
+
+    def _init_execute(
+        self, eopatch, feature, feature_mask, function, resampling, threshold=0.2
+    ):
+        times_doy, x, y = self._instance_inputs(
+            eopatch, feature, feature_mask, function, threshold
+        )
+
+        if resampling > 0:
+            times_doy = np.array(range(1, 365, resampling))
+            new_x = (times_doy - self.range_doy[0]) / (
+                self.range_doy[-1] - self.range_doy[0]
+            )
+            new_x[new_x < 0] = 0
+            new_x[new_x > 1] = 1
+        else:
+            new_x = x
+
+        return x, y.flatten(), times_doy, new_x
+
+    def _replace_values(
+        self, eopatch, ts_mean, doy_o, ts_fitted, doy_r, resampling, cloud_coverage=0.05
+    ):
+        # Replace interpolated values by original ones cloud free
+        corrected_doy_d = doy_r.copy()
+        corrected_doubly_res = ts_fitted.copy()
+
+        for idx, i in enumerate(doy_o):
+            if eopatch.scalar["COVERAGE"][idx][0] < cloud_coverage:
+                previous_idx = np.where(doy_r <= i)[0][-1]
+                next_idx = (
+                    np.where(doy_r > i)[0][0] if i < np.max(doy_r) else previous_idx
+                )
+                argmin_ = np.argmin(
+                    np.array(
+                        [
+                            i - corrected_doy_d[previous_idx],
+                            corrected_doy_d[next_idx] - i,
+                        ]
+                    )
+                )
+                last_idx = previous_idx if argmin_ == 0 else next_idx
+                corrected_doy_d[last_idx] = i
+                corrected_doubly_res[last_idx] = ts_mean[idx]
+
+        if resampling:
+            cs = Akima1DInterpolator(corrected_doy_d, corrected_doubly_res)
+            corrected_doy_d = np.arange(1, 365, resampling)
+            corrected_doubly_res = cs(corrected_doy_d)
+
+        nans, x = self._nan_helper(corrected_doubly_res)
+        corrected_doubly_res[nans] = np.interp(
+            x(nans), x(~nans), corrected_doubly_res[~nans]
+        )
+
+        return corrected_doy_d, corrected_doubly_res
+
+    def _crop_values(self, ts_mean, min_threshold, max_threshold):
+        ts_mean[ts_mean < float(min_threshold)] = min_threshold
+        if max_threshold:
+            ts_mean[ts_mean > float(max_threshold)] = max_threshold
+        return ts_mean
+
+    @staticmethod
+    def _nan_helper(y):
+        return np.isnan(y), lambda z: z.nonzero()[0]
+
+    def _fit_whittaker(
+        self, doy, ts_mean, degree_smoothing, threshold=0.2, weighted=True
+    ):
+        import modape
+        from modape.whittaker import ws2d, ws2doptv, ws2doptvp
+
+        # Apply whittaker smoothing
+        w = np.array((ts_mean >= threshold) * 1, dtype="double")
+        if weighted:
+            w = w * ts_mean / np.max(ts_mean)
+        smoothed_y = ws2d(ts_mean, degree_smoothing, w.flatten())
+        doy, smoothed_y = self._reformat_arrays(doy, smoothed_y)
+        return doy, smoothed_y
+
+    def whittaker_smoothing(
+        self,
+        eopatch,
+        feature,
+        feature_mask="polygon_mask",
+        function=np.nanmedian,
+        resampling=0,
+        min_threshold=0.2,
+        max_threshold=None,
+        degree_smoothing=1,
+        weighted=True,
+    ):
+        import modape
+        from modape.whittaker import ws2d
+
+        # Get time series profile
+        doy, ts_mean_ = self.get_time_series_profile(
+            eopatch,
+            feature,
+            feature_mask=feature_mask,
+            function=function,
+        )
+
+        indices = np.setdiff1d(
+            np.arange(len(doy)), np.unique(doy, return_index=True)[1]
+        )
+        doy = np.array([int(k) for i, k in enumerate(doy) if i not in indices])
+        ts_mean_ = np.array([k for i, k in enumerate(ts_mean_) if i not in indices])
+
+        nans, x = self._nan_helper(ts_mean_)
+        ts_mean_[nans] = np.interp(x(nans), x(~nans), ts_mean_[~nans])
+
+        ts_mean = self._crop_values(ts_mean_, min_threshold, max_threshold)
+
+        # Interpolate the data to a regular time grid
+        if resampling:
+            try:
+                cs = Akima1DInterpolator(doy, ts_mean)
+                doy = np.arange(1, 365, resampling)
+                ts_mean = cs(doy)
+
+            except Exception as e:
+                warnings.WarningMessage(
+                    f"Cannot interpolate over new periods due to : {e}"
+                )
+
+        nans, x = self._nan_helper(ts_mean)
+        ts_mean[nans] = np.interp(x(nans), x(~nans), ts_mean[~nans])
+        # Apply Whittaker smoothing
+        w = np.array((ts_mean > min_threshold) * 1, dtype="float")
+
+        if weighted:
+            w = w * ts_mean / np.max(ts_mean)
+
+        if ts_mean.shape[1] > 1:
+            ts_mean = np.array(
+                [
+                    ws2d(
+                        ts_mean[..., i].flatten().astype("float"),
+                        degree_smoothing,
+                        w[..., i].flatten(),
+                    )
+                    for i in range(ts_mean.shape[1])
+                ]
+            )
+            ts_mean = np.swapaxes(ts_mean, 0, 1)
+
+        else:
+            ts_mean = np.array(
+                ws2d(ts_mean.flatten().astype("float"), degree_smoothing, w.flatten())
+            )
+
+        ts_mean = self._crop_values(ts_mean, min_threshold, max_threshold)
+        doy, ts_mean = self._reformat_arrays(doy, ts_mean)
+
+        return doy, ts_mean
 
 
 class AsymmetricGaussian(CurveFitting):
@@ -398,6 +551,7 @@ class AsymmetricGaussian(CurveFitting):
             np.inf,
             np.inf,
         ]
+
         if initial_parameters is None:
             initial_parameters = [
                 np.mean(y_axis),
@@ -423,13 +577,18 @@ class AsymmetricGaussian(CurveFitting):
 
         return popt
 
-    def execute(
+    def fit_asym_gaussian(self, x, y):
+        a = self._fit_optimize_asym(x, y)
+        return self._asym_gaussian(x, *a)
+
+    def get_fitted_values(
         self,
         eopatch,
         feature,
         feature_mask="polygon_mask",
         function=np.nanmedian,
         resampling=0,
+        threshold=0.2,
     ):
         """
         Apply Asymmetric function to do curve fitting from aggregated time series.
@@ -448,22 +607,55 @@ class AsymmetricGaussian(CurveFitting):
 
         """
 
-        times_doy, x, y = self._instance_inputs(
-            eopatch, feature, feature_mask, function
+        x, y, times_doy, new_x = self._init_execute(
+            eopatch, feature, feature_mask, function, resampling, threshold
         )
+        y[y < threshold] = threshold
 
         initial_value, scale, a1, a2, a3, a4, a5 = self._fit_optimize_asym(x, y)
+        fitted = self._asym_gaussian(new_x, initial_value, scale, a1, a2, a3, a4, a5)
+        fitted[fitted < threshold] = threshold
 
-        if resampling > 0:
-            times_doy = np.array(range(0, 365, resampling))
-            x = (times_doy - self.range_doy[0]) / (
-                self.range_doy[-1] - self.range_doy[0]
-            )
-            x[x < 0] = 0
-            x[x > 1] = 1
-
-        fitted = self._asym_gaussian(x, initial_value, scale, a1, a2, a3, a4, a5)
         return times_doy, fitted
+
+    def execute(
+        self,
+        eopatch,
+        feature,
+        feature_mask="polygon_mask",
+        function=np.nanmedian,
+        resampling=0,
+        threshold=0.2,
+        degree_smoothing=0.5,
+    ):
+        # Get time series profile
+        doy_o_s2, ts_mean_s2 = self.get_time_series_profile(
+            eopatch, feature, feature_mask=feature_mask, function=function
+        )
+        # Apply curve fitting
+        doy_d, doubly_res = self.get_fitted_values(
+            eopatch,
+            feature=feature,
+            function=np.nanmean,
+            resampling=resampling,
+            threshold=threshold,
+        )
+
+        # Replace interpolated values by original ones
+        corrected_doy_d, corrected_doubly_res = self._replace_values(
+            eopatch, ts_mean_s2, doy_o_s2, doubly_res, doy_d, resampling
+        )
+
+        # Smooth interpolated with observed ones
+        corrected_doy_d, smoothed_y = self._fit_whittaker(
+            doy=corrected_doy_d,
+            ts_mean=corrected_doubly_res,
+            degree_smoothing=degree_smoothing,
+            threshold=threshold,
+            weighted=True,
+        )
+
+        return corrected_doy_d, smoothed_y
 
 
 class DoublyLogistic(CurveFitting):
@@ -479,12 +671,11 @@ class DoublyLogistic(CurveFitting):
         )
 
     def _fit_optimize_doubly(self, x_axis, y_axis, initial_parameters=None):
-
         popt, _ = curve_fit(
             self._doubly_logistic,
             x_axis,
             y_axis,
-            method="lm",
+            # method="lm",
             p0=initial_parameters,  # np.array([0.5, 6, 0.2, 150, 0.23, 240]),
             maxfev=int(10e6),
             bounds=[-np.Inf, np.Inf],
@@ -494,13 +685,18 @@ class DoublyLogistic(CurveFitting):
 
         return popt
 
-    def execute(
+    def fit_logistic(self, x, y):
+        a = self._fit_optimize_doubly(x, y)
+        return self._doubly_logistic(x, *a)
+
+    def get_fitted_values(
         self,
         eopatch,
         feature,
         feature_mask="polygon_mask",
         function=np.nanmedian,
         resampling=0,
+        threshold=0.2,
     ):
         """
         Apply Doubly Logistic function to do curve fitting from aggregated time series.
@@ -519,64 +715,208 @@ class DoublyLogistic(CurveFitting):
 
         """
 
-        times_doy, x, y = self._instance_inputs(
-            eopatch, feature, feature_mask, function
+        x, y, times_doy, new_x = self._init_execute(
+            eopatch, feature, feature_mask, function, resampling, threshold
         )
+        y[y < threshold] = threshold
 
         vb, ve, k, c, p, d, q = self._fit_optimize_doubly(x, y)
+        fitted = self._doubly_logistic(new_x, vb, ve, k, c, p, d, q)
+        fitted[fitted < threshold] = threshold
 
-        if resampling > 0:
-            times_doy = np.array(range(0, 365, resampling))
-            x = (times_doy - self.range_doy[0]) / (
-                self.range_doy[-1] - self.range_doy[0]
-            )
-            x[x < 0] = 0
-            x[x > 1] = 1
-
-        fitted = self._doubly_logistic(x, vb, ve, k, c, p, d, q)
         return times_doy, fitted
 
-
-class SmoothResampledData(DoublyLogistic, AsymmetricGaussian):
-    """
-    Smooth resampled data from the planting date
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def _get_optimizer_function(self, x_axis, y_axis, algo):
-        if algo == "doubly logistic":
-            params = self._fit_optimize_doubly(x_axis, y_axis)
-        elif algo == "asymmetric gaussian":
-            params = self._fit_optimize_asym(x_axis, y_axis)
-        return list(params)
-
-    def _get_function(self, params, algo):
-        if algo == "asymmetric gaussian":
-            return self._asym_gaussian(*params)
-        elif algo == "doubly logistic":
-            return self._doubly_logistic(*params)
-
-    def smooth_feature(self, df_feat, algo="doubly logistic"):
-        if algo not in ["doubly logistic", "asymmetric gaussian"]:
-            raise ValueError(
-                "Method must be 'doubly logistic' or 'asymmetric gaussian'"
-            )
-
-        times = np.array(list(range(df_feat.shape[1])))
-        x = (times - times[0]) / (times[-1] - times[0])
-
-        df_params = df_feat.apply(
-            lambda y: pd.Series(self._get_optimizer_function(x, y, algo)), axis=1
+    def execute(
+        self,
+        eopatch,
+        feature,
+        feature_mask="polygon_mask",
+        function=np.nanmedian,
+        resampling=0,
+        threshold=0.2,
+        degree_smoothing=0.5,
+    ):
+        # Get time series profile
+        doy_o_s2, ts_mean_s2 = self.get_time_series_profile(
+            eopatch, feature, feature_mask=feature_mask, function=function
         )
 
-        df_fitted = []
-        for i in range(df_params.shape[0]):
-            params = list(df_params.iloc[i, :])
-            params.insert(0, x)
-            df_fitted.append(pd.DataFrame(self._get_function(params, algo)).T)
+        doy_d, doubly_res = self.get_fitted_values(
+            eopatch,
+            feature=feature,
+            function=np.nanmean,
+            resampling=resampling,
+            threshold=threshold,
+        )
 
-        df_fitted = pd.concat(df_fitted, axis=0)
+        corrected_doy_d, corrected_doubly_res = self._replace_values(
+            eopatch, ts_mean_s2, doy_o_s2, doubly_res, doy_d, resampling
+        )
 
-        return df_params, df_fitted
+        # Apply whittaker smoothing
+        corrected_doy_d, smoothed_y = self._fit_whittaker(
+            doy=corrected_doy_d,
+            ts_mean=corrected_doubly_res,
+            degree_smoothing=degree_smoothing,
+            threshold=threshold,
+            weighted=True,
+        )
+
+        return corrected_doy_d, smoothed_y
+
+
+class FourrierDiscrete(CurveFitting):
+    def __init__(self, omega=1.5, **kwargs):
+        super().__init__(**kwargs)
+        self.omega = omega
+
+    @staticmethod
+    def _clean_data(x_axis, y_axis):
+        good_vals = np.argwhere(~np.isnan(y_axis.flatten()))
+        y_axis = np.take(y_axis, good_vals, 0)
+        x_axis = np.take(x_axis, good_vals, 0)
+        if x_axis[-1] > 1:
+            x_axis = (x_axis - x_axis[0]) / (x_axis[-1] - x_axis[0])
+        return x_axis, y_axis
+
+    def _hants(self, x, c, omega, a1, a2, b1, b2):
+        """
+        Formula for a 2nd order Fourier series
+
+        Parameters
+        ----------
+        x : Timepoint t on the x-axis
+        c : Intercept coefficient
+        omega : Omega coefficient (Wavelength)
+        a1 : 1st order cosine coefficient
+        a2 : 2nd order cosine coefficient
+        b1 : 1st oder sine coefficient
+        b2 : 2nd order sine coefficient
+
+        Returns
+        -------
+        Parameters of the 2nd order Fourier series formula to be used in the "fouriersmoother" function
+        """
+        return (
+            c
+            + (a1 * np.cos(2 * np.pi * omega * 1 * x))
+            + (b1 * np.sin(2 * np.pi * omega * 1 * x))
+            + (a2 * np.cos(2 * np.pi * omega * 2 * x))
+            + (b2 * np.sin(2 * np.pi * omega * 2 * x))
+        )
+
+    def _fourier(self, x, *a):
+        ret = a[0] * np.cos(np.pi / self.omega * x)
+        for deg in range(1, len(a)):
+            ret += a[deg] * np.cos((deg + 1) * np.pi / self.omega * x)
+        return ret
+
+    def fit_fourier(self, x_axis, y_axis, new_x):
+        '''
+        Other version of fourier, but we should focus on hants instead
+        '''
+        x_axis, y_axis = self._clean_data(x_axis, y_axis)
+        popt, _ = curve_fit(self._fourier, x_axis[:, 0], y_axis[:, 0], [1.0] * 5)
+        self.params = popt
+        return self._fourier(new_x, *popt)
+
+    def fit_hants(self, x_axis, y_axis, new_x):
+        '''
+        Harmonic analysis of Time Series
+        '''
+        x_axis, y_axis = self._clean_data(x_axis, y_axis)
+
+        popt, _ = curve_fit(
+            self._hants,
+            x_axis[:, 0],
+            y_axis[:, 0],
+            maxfev=5000,
+            method="trf",
+            p0=[np.mean(y_axis), 1, 1, 1, 1, 1],
+        )
+        self.params = popt
+        return self._hants(new_x, *popt)
+
+    def get_fitted_values(
+        self,
+        eopatch,
+        feature,
+        feature_mask="polygon_mask",
+        function=np.nanmedian,
+        resampling=0,
+        fft=True,
+        threshold=0.2,
+    ):
+        """
+        Apply Fourrier transform function to do curve fitting from aggregated time series.
+        It aims to reconstruct, smooth and extract phenological parameters from time series
+        Parameters
+        ----------
+        eopatch (EOPatch)
+        feature (str) : name of the feature to process
+        feature_mask (str) : name of the polygon mask
+        function (np.function) : function to aggregate pixels at object level
+
+        resampling (np.array : dates from reconstructed time series, np.array : aggregated time series)
+
+        Returns
+        -------
+        """
+        x, y, times_doy, new_x = self._init_execute(
+            eopatch, feature, feature_mask, function, resampling, threshold
+        )
+
+        y[y < threshold] = threshold
+
+        fitted = self.fit_hants(x, y, new_x) if fft else self.fit_fourier(x, y, new_x)
+        fitted[fitted < threshold] = threshold
+
+        return times_doy, fitted
+
+    def execute(
+        self,
+        eopatch,
+        feature,
+        feature_mask="polygon_mask",
+        function=np.nanmedian,
+        resampling=0,
+        fft=True,
+        threshold=0.2,
+        degree_smoothing=0.5,
+    ):
+        # Get time series profile
+        doy_o_s2, ts_mean_s2 = self.get_time_series_profile(
+            eopatch, feature, feature_mask=feature_mask, function=function
+        )
+
+        # Apply curve fitting
+        doy_d, doubly_res = self.get_fitted_values(
+            eopatch,
+            feature=feature,
+            function=np.nanmean,
+            resampling=resampling,
+            fft=fft,
+            threshold=threshold,
+        )
+
+        # Replace interpolated values by original ones
+        corrected_doy_d, corrected_doubly_res = self._replace_values(
+            eopatch=eopatch,
+            ts_mean=ts_mean_s2,
+            doy_o=doy_o_s2,
+            ts_fitted=doubly_res,
+            doy_r=doy_d,
+            resampling=resampling,
+        )
+
+        # Apply whittaker smoothing
+        corrected_doy_d, smoothed_y = self._fit_whittaker(
+            doy=corrected_doy_d,
+            ts_mean=corrected_doubly_res,
+            degree_smoothing=degree_smoothing,
+            threshold=threshold,
+            weighted=True,
+        )
+
+        return corrected_doy_d, smoothed_y
+

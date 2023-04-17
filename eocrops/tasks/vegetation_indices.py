@@ -35,7 +35,6 @@ class VegetationIndicesVHRS(EOTask):
 
         return eopatch
 
-
 class BiophysicalIndices:
     def __init__(
         self,
@@ -52,7 +51,6 @@ class BiophysicalIndices:
         viewAzimuthMean,
         sunAzimuthAngles,
     ):
-        """EOPatch should contains only 10 and 20m bands + illumination properties, as in eocrops.input.sentinel2"""
         self.B03 = B03
         self.B04 = B04
         self.B05 = B05
@@ -170,156 +168,7 @@ class BiophysicalIndices:
             (self.sunAzimuthAngles - self.viewAzimuthMean) * degToRad
         )
 
-    def get_FCOVER(self):
-        """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as input the metadata of sentinel2 images"""
-
-        n1 = self._neuron(
-            -1.45261652206,
-            -0.156854264841,
-            0.124234528462,
-            +0.235625516229,
-            -1.8323910258,
-            -0.217188969888,
-            +5.06933958064,
-            -0.887578008155,
-            -1.0808468167,
-            -0.0323167041864,
-            -0.224476137359,
-            -0.195523962947,
-            self.b03_norm,
-            self.b04_norm,
-            self.b05_norm,
-            self.b06_norm,
-            self.b07_norm,
-            self.b8a_norm,
-            self.b11_norm,
-            self.b12_norm,
-            self.viewZen_norm,
-            self.sunZen_norm,
-            self.relAzim_norm,
-        )
-
-        n2 = self._neuron(
-            -1.70417477557,
-            -0.220824927842,
-            +1.28595395487,
-            +0.703139486363,
-            -1.34481216665,
-            -1.96881267559,
-            -1.45444681639,
-            +1.02737560043,
-            -0.12494641532,
-            +0.0802762437265,
-            -0.198705918577,
-            +0.108527100527,
-            self.b03_norm,
-            self.b04_norm,
-            self.b05_norm,
-            self.b06_norm,
-            self.b07_norm,
-            self.b8a_norm,
-            self.b11_norm,
-            self.b12_norm,
-            self.viewZen_norm,
-            self.sunZen_norm,
-            self.relAzim_norm,
-        )
-
-        n3 = self._neuron(
-            1.02168965849,
-            -0.409688743281,
-            +1.08858884766,
-            +0.36284522554,
-            +0.0369390509705,
-            -0.348012590003,
-            -2.0035261881,
-            +0.0410357601757,
-            +1.22373853174,
-            +-0.0124082778287,
-            -0.282223364524,
-            +0.0994993117557,
-            self.b03_norm,
-            self.b04_norm,
-            self.b05_norm,
-            self.b06_norm,
-            self.b07_norm,
-            self.b8a_norm,
-            self.b11_norm,
-            self.b12_norm,
-            self.viewZen_norm,
-            self.sunZen_norm,
-            self.relAzim_norm,
-        )
-
-        n4 = self._neuron(
-            -0.498002810205,
-            -0.188970957866,
-            -0.0358621840833,
-            +0.00551248528107,
-            +1.35391570802,
-            -0.739689896116,
-            -2.21719530107,
-            +0.313216124198,
-            +1.5020168915,
-            +1.21530490195,
-            -0.421938358618,
-            +1.48852484547,
-            self.b03_norm,
-            self.b04_norm,
-            self.b05_norm,
-            self.b06_norm,
-            self.b07_norm,
-            self.b8a_norm,
-            self.b11_norm,
-            self.b12_norm,
-            self.viewZen_norm,
-            self.sunZen_norm,
-            self.relAzim_norm,
-        )
-
-        n5 = self._neuron(
-            -3.88922154789,
-            +2.49293993709,
-            -4.40511331388,
-            -1.91062012624,
-            -0.703174115575,
-            -0.215104721138,
-            -0.972151494818,
-            -0.930752241278,
-            +1.2143441876,
-            -0.521665460192,
-            -0.445755955598,
-            +0.344111873777,
-            self.b03_norm,
-            self.b04_norm,
-            self.b05_norm,
-            self.b06_norm,
-            self.b07_norm,
-            self.b8a_norm,
-            self.b11_norm,
-            self.b12_norm,
-            self.viewZen_norm,
-            self.sunZen_norm,
-            self.relAzim_norm,
-        )
-
-        l2 = self._layer2(
-            -0.0967998147811,
-            +0.23080586765,
-            n1,
-            -0.333655484884,
-            n2,
-            -0.499418292325,
-            n3,
-            +0.0472484396749,
-            n4,
-            -0.0798516540739,
-            n5,
-        )
-
-        return self._denormalize(l2, 0.000181230723879, 0.999638214715)
-
-    def get_LAI(self):
+    def get_lai(self):
         """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as input the metadata of sentinel2 images"""
 
         n1 = self._neuron(
@@ -468,7 +317,7 @@ class BiophysicalIndices:
 
         return self._denormalize(l2, 0.000319182538301, 14.4675094548151)
 
-    def get_Cab(self):
+    def get_cab(self):
         """Define biochemical vegetation index Chloro a+b, computed from a trained neural network which has as input the metadata of sentinel2 images"""
 
         n1 = self._neuron(
@@ -615,9 +464,9 @@ class BiophysicalIndices:
             n5,
         )
 
-        return self._denormalize(l2, 0.007426692959872, 873.908222110306) / 10
+        return self._denormalize(l2, 0.007426692959872, 873.908222110306)
 
-    def get_FAPAR(self):
+    def get_fapar(self):
         """Define biophysical vegetation index Fraction of Absorbed Photosynthetically Active Radiation, computed from a trained neural network which has as input the metadata of sentinel2 images"""
         n1 = self._neuron(
             -0.887068364040280,
@@ -765,14 +614,310 @@ class BiophysicalIndices:
 
         return self._denormalize(l2, 0.000153013463222, 0.977135096979553)
 
+    def get_fcover(self):
+        """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as input the metadata of sentinel2 images"""
+
+        n1 = self._neuron(
+            -1.45261652206,
+            -0.156854264841,
+            0.124234528462,
+            +0.235625516229,
+            -1.8323910258,
+            -0.217188969888,
+            +5.06933958064,
+            -0.887578008155,
+            -1.0808468167,
+            -0.0323167041864,
+            -0.224476137359,
+            -0.195523962947,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n2 = self._neuron(
+            -1.70417477557,
+            -0.220824927842,
+            +1.28595395487,
+            +0.703139486363,
+            -1.34481216665,
+            -1.96881267559,
+            -1.45444681639,
+            +1.02737560043,
+            -0.12494641532,
+            +0.0802762437265,
+            -0.198705918577,
+            +0.108527100527,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n3 = self._neuron(
+            1.02168965849,
+            -0.409688743281,
+            +1.08858884766,
+            +0.36284522554,
+            +0.0369390509705,
+            -0.348012590003,
+            -2.0035261881,
+            +0.0410357601757,
+            +1.22373853174,
+            +-0.0124082778287,
+            -0.282223364524,
+            +0.0994993117557,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n4 = self._neuron(
+            -0.498002810205,
+            -0.188970957866,
+            -0.0358621840833,
+            +0.00551248528107,
+            +1.35391570802,
+            -0.739689896116,
+            -2.21719530107,
+            +0.313216124198,
+            +1.5020168915,
+            +1.21530490195,
+            -0.421938358618,
+            +1.48852484547,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n5 = self._neuron(
+            -3.88922154789,
+            +2.49293993709,
+            -4.40511331388,
+            -1.91062012624,
+            -0.703174115575,
+            -0.215104721138,
+            -0.972151494818,
+            -0.930752241278,
+            +1.2143441876,
+            -0.521665460192,
+            -0.445755955598,
+            +0.344111873777,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        l2 = self._layer2(
+            -0.0967998147811,
+            +0.23080586765,
+            n1,
+            -0.333655484884,
+            n2,
+            -0.499418292325,
+            n3,
+            +0.0472484396749,
+            n4,
+            -0.0798516540739,
+            n5,
+        )
+
+        return self._denormalize(l2, 0.000181230723879, 0.999638214715)
+
+    def get_cw(self):
+        """Define biophysical vegetation index Fraction of Absorbed Photosynthetically Active Radiation, computed from a trained neural network which has as input the metadata of sentinel2 images"""
+        n1 = self._neuron(
+            -2.1064083686,
+            0.146378710426,
+            1.18979928187,
+            -0.906235139963,
+            -0.808337508767,
+            -0.97333491783,
+            -1.42591277646,
+            -0.00561253629588,
+            -0.634520356267,
+            -0.117226059989,
+            -0.0602700912102,
+            0.229407587132,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n2 = self._neuron(
+            -1.69022094794,
+            0.283319173374,
+            0.149342023041,
+            1.08480588387,
+            -0.138658791035,
+            -0.455759407329,
+            0.420571438078,
+            -1.7372949037,
+            -0.704286287226,
+            0.0190953782358,
+            -0.0393971316513,
+            -0.00750241581744,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n3 = self._neuron(
+            3.10117655255,
+            -0.197487427943,
+            -0.105460325978,
+            0.158347670681,
+            2.14912426654,
+            -0.970716842916,
+            -4.92725317909,
+            1.42034301781,
+            1.45316917226,
+            0.0227257053609,
+            0.269298650421,
+            0.0849047657715,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n4 = self._neuron(
+            -1.31231626496,
+            0.141405799763,
+            0.33386260328,
+            0.356218929123,
+            -0.545942267639,
+            0.0891043076856,
+            0.919298362929,
+            -1.8520892625,
+            -0.427539590779,
+            0.00791385646467,
+            0.0148333201478,
+            -0.00153786769736,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        n5 = self._neuron(
+            1.01131930348,
+            -0.186781083395,
+            -0.549163704901,
+            -0.181287638772,
+            0.96864043656,
+            -0.470442559117,
+            -1.24859725244,
+            2.67014942338,
+            0.49009062438,
+            -0.00144931939526,
+            0.00314829369692,
+            0.0206517883893,
+            self.b03_norm,
+            self.b04_norm,
+            self.b05_norm,
+            self.b06_norm,
+            self.b07_norm,
+            self.b8a_norm,
+            self.b11_norm,
+            self.b12_norm,
+            self.viewZen_norm,
+            self.sunZen_norm,
+            self.relAzim_norm,
+        )
+
+        l2 = self._layer2(
+            -0.197591709977,
+            -0.0775555890347,
+            n1,
+            -0.86411786119,
+            n2,
+            -0.199212415374,
+            n3,
+            1.98730461219,
+            n4,
+            0.458926743489,
+            n5,
+        )
+
+        return self._denormalize(l2, 3.85066859366e-06, 0.522417054645)
+
 
 class VegetationIndicesS2(EOTask):
     """Define a class of vegetation indices, which are computed from the metadata of sentinel2 images extracted"""
 
-    def __init__(self, feature_name, mask_data=True, biophysical=True):
+    def __init__(self, feature_name, mask_data=True):
         self.feature_name = feature_name
         self.mask_data = mask_data
-        self.biophysical = biophysical
 
     def get_vegetation_indices(self):
         """Define vegetation indices which are simply ratio of spectral bands"""
@@ -781,33 +926,35 @@ class VegetationIndicesS2(EOTask):
         self.GNDVI = (self.B8A - self.B03) / (self.B8A + self.B03)
         self.NDVIre = (self.B8A - self.B05) / (self.B8A + self.B05)
 
-        if self.biophysical:
-            biopysicial_parameters = BiophysicalIndices(
-                self.B03,
-                self.B04,
-                self.B05,
-                self.B06,
-                self.B07,
-                self.B8A,
-                self.B11,
-                self.B12,
-                self.viewZenithMean,
-                self.sunZenithAngles,
-                self.viewAzimuthMean,
-                self.sunAzimuthAngles,
-            )
-            # Normalized bands
-            biopysicial_parameters.apply_normalize()
+    def get_biophysical_parameters(self):
+        biopysicial_parameters = BiophysicalIndices(
+            self.B03,
+            self.B04,
+            self.B05,
+            self.B06,
+            self.B07,
+            self.B8A,
+            self.B11,
+            self.B12,
+            self.viewZenithMean,
+            self.sunZenithAngles,
+            self.viewAzimuthMean,
+            self.sunAzimuthAngles,
+        )
+        # Normalized bands
+        biopysicial_parameters.apply_normalize()
 
-            self.fapar = biopysicial_parameters.get_FAPAR()
-            self.fcover = biopysicial_parameters.get_FCOVER()
-            self.LAI = biopysicial_parameters.get_LAI()
-            self.Cab = biopysicial_parameters.get_Cab()
+        self.fapar = biopysicial_parameters.get_fapar()
+        self.LAI = biopysicial_parameters.get_lai()
+        self.CCC = biopysicial_parameters.get_cab()
+        self.Cab = self.CCC/self.LAI
+        self.CCW = biopysicial_parameters.get_cw()
+        self.CW = self.CCW / self.LAI
+        self.fcover = biopysicial_parameters.get_fcover()
 
-    def execute(self, eopatch):
-        """Add those vegeation indices to the eo-patch for futur use"""
-
+    def mask_pixels(self, eopatch):
         bands_array = eopatch.data[self.feature_name]
+
         valid_data_mask = (
             eopatch.mask["VALID_DATA"] if self.mask_data else eopatch.mask["IS_DATA"]
         )
@@ -817,11 +964,19 @@ class VegetationIndicesS2(EOTask):
                 bands_array,
                 dtype=np.float32,
                 mask=np.logical_or(
-                    ~valid_data_mask.astype(np.bool), np.isnan(bands_array)
+                    ~valid_data_mask.astype(bool), np.isnan(bands_array)
                 ),
                 fill_value=np.nan,
             )
             bands_array = bands_array.filled()
+
+        return bands_array
+
+    def execute(self, eopatch):
+        """Add those vegeation indices to the eo-patch for futur use"""
+
+        bands_array = self.mask_pixels(eopatch)
+        illumination_array = eopatch.data["ILLUMINATION"]
 
         # Raw data
         self.B02 = bands_array[..., 0]
@@ -834,32 +989,34 @@ class VegetationIndicesS2(EOTask):
         self.B8A = bands_array[..., 7]
         self.B11 = bands_array[..., 8]
         self.B12 = bands_array[..., 9]
+        self.viewZenithMean = illumination_array[..., 0]
+        self.sunZenithAngles = illumination_array[..., 1]
+        self.viewAzimuthMean = illumination_array[..., 2]
+        self.sunAzimuthAngles = illumination_array[..., 3]
 
-        if self.biophysical:
-            illumination_array = eopatch.data["ILLUMINATION"]
-            self.viewZenithMean = illumination_array[..., 0]
-            self.sunZenithAngles = illumination_array[..., 1]
-            self.viewAzimuthMean = illumination_array[..., 2]
-            self.sunAzimuthAngles = illumination_array[..., 3]
+        self.get_vegetation_indices()
+        self.get_biophysical_parameters()
 
-            self.get_vegetation_indices()
+        add_feat = AddFeatureTask((FeatureType.DATA, "fapar"))
+        add_feat.execute(eopatch=eopatch, data=self.fapar[..., np.newaxis])
 
-            remove_illumination = RemoveFeatureTask([FeatureType.DATA, "ILLUMINATION"])
-            remove_illumination.execute(eopatch)
+        add_feat = AddFeatureTask((FeatureType.DATA, "LAI"))
+        add_feat.execute(eopatch=eopatch, data=self.LAI[..., np.newaxis])
 
-            add_fapar = AddFeatureTask((FeatureType.DATA, "fapar"))
-            add_fapar.execute(eopatch=eopatch, data=self.fapar[..., np.newaxis])
+        add_feat = AddFeatureTask((FeatureType.DATA, "CCC"))
+        add_feat.execute(eopatch=eopatch, data=self.CCC[..., np.newaxis])
 
-            add_FCOVER = AddFeatureTask((FeatureType.DATA, "fcover"))
-            add_FCOVER.execute(eopatch=eopatch, data=self.fcover[..., np.newaxis])
+        add_feat = AddFeatureTask((FeatureType.DATA, "Cab"))
+        add_feat.execute(eopatch=eopatch, data=self.Cab[..., np.newaxis])
 
-            add_Cab = AddFeatureTask((FeatureType.DATA, "Cab"))
-            add_Cab.execute(eopatch=eopatch, data=self.Cab[..., np.newaxis])
+        add_feat = AddFeatureTask((FeatureType.DATA, "CCW"))
+        add_feat.execute(eopatch=eopatch, data=self.CCW[..., np.newaxis])
 
-            add_LAI = AddFeatureTask((FeatureType.DATA, "LAI"))
-            add_LAI.execute(eopatch=eopatch, data=self.LAI[..., np.newaxis])
-        else:
-            self.get_vegetation_indices()
+        add_feat = AddFeatureTask((FeatureType.DATA, "CW"))
+        add_feat.execute(eopatch=eopatch, data=self.CW[..., np.newaxis])
+
+        add_feat = AddFeatureTask((FeatureType.DATA, "fcover"))
+        add_feat.execute(eopatch=eopatch, data=self.fcover[..., np.newaxis])
 
         add_NDVI = AddFeatureTask((FeatureType.DATA, "NDVI"))
         add_NDVI.execute(eopatch=eopatch, data=self.NDVI[..., np.newaxis])
@@ -873,7 +1030,13 @@ class VegetationIndicesS2(EOTask):
         add_NDVIre = AddFeatureTask((FeatureType.DATA, "NDVIre"))
         add_NDVIre.execute(eopatch=eopatch, data=self.NDVIre[..., np.newaxis])
 
+
+        if "ILLUMINATION" in eopatch.data.keys():
+            remove_task = RemoveFeatureTask((FeatureType.DATA, "ILLUMINATION"))
+            remove_task.execute(eopatch)
+
         return eopatch
+
 
 
 class EuclideanNorm(EOTask):
