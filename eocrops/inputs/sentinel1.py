@@ -1,6 +1,7 @@
 import os
 import datetime
 import eolearn
+import multiprocessing
 
 from sentinelhub import DataCollection
 
@@ -9,7 +10,7 @@ from eolearn.io import SentinelHubInputTask, SentinelHubDemTask
 
 import eocrops.tasks.preprocessing as preprocessing
 import eocrops.utils.base_functions as utils
-import multiprocessing
+
 
 import eocrops.inputs.utils_sh as utils_sh
 
@@ -53,6 +54,7 @@ def workflow_instructions_S1IW(
        Window (in pixels) to apply spatial speckle filtering
     n_threads : int
                 Number of threads used to download the EOPatch
+
     Returns
     -------
     EOPatch

@@ -1,4 +1,5 @@
 import os
+import multiprocessing
 
 from eolearn.core import (
     SaveTask,
@@ -15,7 +16,7 @@ from eolearn.core import OverwritePermission
 import eocrops.tasks.preprocessing as preprocessing
 from eocrops.utils import base_functions as utils
 import eocrops.tasks.vegetation_indices as vegetation_indices
-import eocrops.input.utils_sh as utils_sh
+import eocrops.inputs.utils_sh as utils_sh
 
 def workflow_instructions_S2L2A(
     config,
@@ -46,6 +47,7 @@ def workflow_instructions_S2L2A(
                     Specify if we interpolate cloudy pixels ({"interpolate": True}) and resample time series over fixed periods (e.g. 16 days : {"interpolate": True, , "period_length": 16})
     n_threads : int
                 Number of threads used to download the EOPatch
+                
     Returns
     -------
     EOPatch
