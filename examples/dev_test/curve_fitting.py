@@ -1,5 +1,7 @@
 from eolearn.core import EOPatch
 import numpy as np
+
+import eocrops.tasks.curve_fitting
 from eocrops.tasks import preprocessing
 import matplotlib.pyplot as plt
 import os
@@ -10,7 +12,7 @@ list_files = os.listdir("/home/johann/Documents/DATA/EOPatch samples")
 f = list_files[0]
 eopatch = EOPatch.load("/home/johann/Documents/DATA/EOPatch samples/" + f)
 
-curve_fit_task = preprocessing.DoublyLogistic(range_doy=(100, 300))
+curve_fit_task = eocrops.tasks.curve_fitting.DoublyLogistic(range_doy=(100, 300))
 doy_, _ = curve_fit_task.get_doy_period(eopatch)
 curve_fit_task.params
 
@@ -22,7 +24,7 @@ doy, fitted = curve_fit_task.execute(
     eopatch, feature="fapar", feature_mask="polygon_mask"
 )
 
-curve_fit_asym = preprocessing.AsymmetricGaussian(range_doy=(100, 300))
+curve_fit_asym = eocrops.tasks.curve_fitting.AsymmetricGaussian(range_doy=(100, 300))
 doy, fitted_asym = curve_fit_asym.execute(
     eopatch, feature="fapar", feature_mask="polygon_mask"
 )

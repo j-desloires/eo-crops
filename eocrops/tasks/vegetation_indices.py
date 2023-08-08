@@ -5,6 +5,8 @@ from eolearn.core import AddFeatureTask, RemoveFeatureTask
 
 
 class VegetationIndicesVHRS(EOTask):
+    """Compute vegetation indices for VHRS data (only 4 bands)"""
+
     def __init__(self, feature_name):
         self.feature_name = feature_name
 
@@ -36,7 +38,7 @@ class VegetationIndicesVHRS(EOTask):
         return eopatch
 
 
-class BiophysicalIndices:
+class BiophysicalParameters:
     def __init__(
         self,
         B03,
@@ -52,6 +54,17 @@ class BiophysicalIndices:
         viewAzimuthMean,
         sunAzimuthAngles,
     ):
+        """
+        Compute biophysical parameters in Sentinel-2 data using the code available in SNAP biophysical processor.
+
+        Parameters
+        ----------
+        B03-B12 : np.array
+            Band from S2 image (4-d format T*H*W*1)
+        Illumination properties:
+            Band from S2 image (4-d format T*H*W*1)
+        """
+
         self.B03 = B03
         self.B04 = B04
         self.B05 = B05
@@ -67,7 +80,7 @@ class BiophysicalIndices:
 
     @staticmethod
     def _normalize(unnormalized, mini, maxi):
-        """Normalize input Neural Network"""
+        """Normalize inputs Neural Network"""
         return 2 * (unnormalized - mini) / (maxi - mini) - 1
 
     @staticmethod
@@ -134,7 +147,7 @@ class BiophysicalIndices:
     def _layer2(
         cste, w_n1, neuron1, w_n2, neuron2, w_n3, neuron3, w_n4, neuron4, w_n5, neuron5
     ):
-        """Define the second layer, which is a linear combination of the neurons => input of the activation function"""
+        """Define the second layer, which is a linear combination of the neurons => inputs of the activation function"""
         return (
             cste
             + w_n1 * neuron1
@@ -170,7 +183,7 @@ class BiophysicalIndices:
         )
 
     def get_lai(self):
-        """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as input the metadata of sentinel2 images"""
+        """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as inputs the metadata of sentinel2 images"""
 
         n1 = self._neuron(
             4.96238030555279,
@@ -319,7 +332,7 @@ class BiophysicalIndices:
         return self._denormalize(l2, 0.000319182538301, 14.4675094548151)
 
     def get_cab(self):
-        """Define biochemical vegetation index Chloro a+b, computed from a trained neural network which has as input the metadata of sentinel2 images"""
+        """Define biochemical vegetation index Chloro a+b, computed from a trained neural network which has as inputs the metadata of sentinel2 images"""
 
         n1 = self._neuron(
             4.242299670155190,
@@ -468,7 +481,7 @@ class BiophysicalIndices:
         return self._denormalize(l2, 0.007426692959872, 873.908222110306)
 
     def get_fapar(self):
-        """Define biophysical vegetation index Fraction of Absorbed Photosynthetically Active Radiation, computed from a trained neural network which has as input the metadata of sentinel2 images"""
+        """Define biophysical vegetation index Fraction of Absorbed Photosynthetically Active Radiation, computed from a trained neural network which has as inputs the metadata of sentinel2 images"""
         n1 = self._neuron(
             -0.887068364040280,
             0.268714454733421,
@@ -616,7 +629,7 @@ class BiophysicalIndices:
         return self._denormalize(l2, 0.000153013463222, 0.977135096979553)
 
     def get_fcover(self):
-        """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as input the metadata of sentinel2 images"""
+        """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as inputs the metadata of sentinel2 images"""
 
         n1 = self._neuron(
             -1.45261652206,
@@ -765,7 +778,7 @@ class BiophysicalIndices:
         return self._denormalize(l2, 0.000181230723879, 0.999638214715)
 
     def get_cw(self):
-        """Define biophysical vegetation index Fraction of Absorbed Photosynthetically Active Radiation, computed from a trained neural network which has as input the metadata of sentinel2 images"""
+        """Define biophysical vegetation index Fraction of Absorbed Photosynthetically Active Radiation, computed from a trained neural network which has as inputs the metadata of sentinel2 images"""
         n1 = self._neuron(
             -2.1064083686,
             0.146378710426,
@@ -928,7 +941,7 @@ class VegetationIndicesS2(EOTask):
         self.NDVIre = (self.B8A - self.B05) / (self.B8A + self.B05)
 
     def get_biophysical_parameters(self):
-        biopysicial_parameters = BiophysicalIndices(
+        biopysicial_parameters = BiophysicalParameters(
             self.B03,
             self.B04,
             self.B05,

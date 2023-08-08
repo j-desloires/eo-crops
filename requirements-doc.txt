@@ -1,0 +1,10 @@
+numpydoc
+nbsphinx
+sphinx
+sphinx-nested-apidoc
+sphinx_mdinclude
+sphinx_rtd_theme
+sphinx-nested-apidoc
+sphinx-copybutton
+sphinx-book-theme
+sphinx-gallery

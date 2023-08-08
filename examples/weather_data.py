@@ -1,5 +1,6 @@
 import pandas as pd
-from eocrops.input.meteoblue import WeatherDownload, WeatherPostprocess
+from eocrops.inputs.meteoblue import WeatherDownload
+from eocrops.thermal_time.format_data import WeatherPostprocess
 
 ###############################################################################################################
 # Read the file
@@ -10,7 +11,7 @@ input_file["Id_location"] = input_file["Id_location"].astype(str)
 input_file = input_file[input_file["Aggregation"].isin(["mean"])]
 
 ###############################################################################################################
-# Step 1 : Define the query with a backbone (=units, jobs parameters) and your input file features (locations,..)
+# Step 1 : Define the query with a backbone (=units, jobs parameters) and your inputs file features (locations,..)
 ###############################################################################################################
 
 queryBackbone = {

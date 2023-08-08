@@ -1,186 +1,60 @@
-import aiohttp
-import asyncio
-from io import StringIO
+import os
+import contextlib
 
-import pandas as pd
 import dateutil
 import datetime as dt
-
 import numpy as np
-import datetime
-
-
-class WeatherDownload:
-    def __init__(
-        self,
-        api_key,
-        queryBackbone,
-        ids,
-        coordinates,
-        years,
-        loop=asyncio.new_event_loop(),
-    ):
-        """
-
-        Parameters
-        ----------
-        api_key (str) : API key from meteoblue
-        queryBackbone (dict) : query backbone from meteoblue
-        ids (list) : list of ids from each location request
-        coordinates (list of tuples) : list of each location coordinate
-        years (list) : years of extraction w.r.t the ids
-        """
-        self.api_key = api_key
-        self.queryBackbone = queryBackbone
-        self.loop = loop
-        self.ids = ids
-        self.coordinates = coordinates
-        self.years = years
-        self.url_query = "http://my.meteoblue.com/dataset/query"
-        self.url_queue = "http://queueresults.meteoblue.com/"
-
-    async def _get_jobIDs_from_query(self, query, time_interval=("01-01", "12-31")):
-        async def _make_ids(ids, coordinates, dates):
-            for i, (id, coord, date) in enumerate(zip(ids, coordinates, dates)):
-                yield i, id, coord, date
-
-        jobIDs = []
-
-        async for i, id, coord, date in _make_ids(
-            self.ids, self.coordinates, self.years
-        ):
-            await asyncio.sleep(
-                0.5
-            )  # query spaced by 05 seconds => 2 queries max per queueTime (limit = 5)
-            start_time, end_time = (
-                str(date) + "-" + time_interval[0],
-                str(date) + "-" + time_interval[1],
-            )
-
-            self.queryBackbone["geometry"]["geometries"] = [
-                dict(type="MultiPoint", coordinates=[coord], locationNames=[id])
-            ]
-            self.queryBackbone["timeIntervals"] = [
-                start_time + "T+00:00" + "/" + end_time + "T+00:00"
-            ]
-            self.queryBackbone["queries"] = query
-
-            async with aiohttp.ClientSession() as session:
-                # prepare the coroutines that post
-                async with session.post(
-                    self.url_query,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                    },
-                    params={"apikey": self.api_key},
-                    json=self.queryBackbone,
-                ) as response:
-                    data = await response.json()
-                    print(data)
-                await session.close()
-            jobIDs.append(data["id"])
-        # now execute them all at once
-        return jobIDs
-
-    async def _get_request_from_jobID(self, jobID, sleep=1, limit=5):
-        await asyncio.sleep(sleep)
-        # limit amount of simultaneously opened connections you can pass limit parameter to connector
-        conn = aiohttp.TCPConnector(limit=limit, ttl_dns_cache=300)
-        session = aiohttp.ClientSession(
-            connector=conn
-        )  # ClientSession is the heart and the main entry point for all client API operations.
-        # session contains a cookie storage and connection pool, thus cookies and connections are shared between HTTP requests sent by the same session.
-
-        async with session.get(self.url_queue + jobID) as response:
-            print("Status:", response.status)
-            print("Content-type:", response.headers["content-type"])
-            urlData = await response.text()
-            print(response)
-            await session.close()
-        df = pd.read_csv(StringIO(urlData), sep=",", header=None)
-        df["jobID"] = jobID
-        return df
-
-    @staticmethod
-    async def _gather_with_concurrency(n, *tasks):
-        semaphore = asyncio.Semaphore(n)
-
-        async def sem_task(task):
-            async with semaphore:
-                return await task
-
-        return await asyncio.gather(*(sem_task(task) for task in tasks))
-
-    def execute(self, query, time_interval=("01-01", "12-31"), conc_req=5):
-        try:
-            jobIDs = self.loop.run_until_complete(
-                self._get_jobIDs_from_query(query, time_interval)
-            )
-
-            dfs = self.loop.run_until_complete(
-                self._gather_with_concurrency(
-                    conc_req,
-                    *[
-                        self._get_request_from_jobID(jobID, i / 100)
-                        for i, jobID in enumerate(jobIDs)
-                    ]
-                )
-            )
-        finally:
-            print("close")
-            self.loop.close()
-
-        return pd.concat(dfs, axis=0)
-
-
-#############################################################################################
+from ast import literal_eval
+import pandas as pd
 
 
 class WeatherPostprocess:
     def __init__(
         self,
-        input_file,
+        shapefile,
         id_column,
         year_column,
         resample_range=("-01-01", "-12-31", 1),
         planting_date_column=None,
-        havest_date_column=None,
     ):
         """
-        Format output file from meteoblue API into a pd.DataFrame
-
         :param input_file (pd.DataFrame) : input file with fields in-situ data
-        :param id_column (str): Name of the column that contains ids of the fields to merge with CEHub data
+        :param id_column (str): Name of the column that contains ids of the fields to merge with Meteoblue data
         :param planting_date_column (str): Name of the column with planting date in doy format
         :param havest_date_column (str): Name of the column with harvest date in doy format
         :param year_column (str) : Name of the column with the yearly season associated to each field
-        :param resample_range (tuple): Query period (interval of date) and number of days to aggregate over period (e.g. 8 days) instead of having daily data
+        :param resample_range (tuple): Interval of date to resample time series given a fixed period length (e.g. 8 days)
         """
 
+        self.resample_range = resample_range
         self.id_column = id_column
         self.planting_date_column = planting_date_column
-        self.havest_date_column = havest_date_column
+
         self.year_column = year_column
         self.resample_range = resample_range
-        self.input_file = input_file[
-            [self.id_column, self.year_column]
-        ].drop_duplicates()
+        self.input_file = shapefile.drop_duplicates(
+            subset=[self.id_column, self.year_column]
+        )
 
-        if (
-            self.planting_date_column is not None
-            and self.havest_date_column is not None
-        ):
+        if self.planting_date_column is not None:
+            if self.planting_date_column not in list(shapefile.columns):
+                raise ValueError(
+                    "The column "
+                    + self.planting_date_column
+                    + " is not in the input file"
+                )
+
             self.input_file = self.input_file.rename(
                 columns={self.planting_date_column: "planting_date"}
             )
+
             self._apply_convert_doy("planting_date")
 
     def _get_descriptive_period(self, df, stat="mean"):
         """
         Compute descriptive statistics given period
         """
-        dict_stats = dict(mean=np.nanmean, max=np.nanmax, min=np.nanmin)
+        dict_stats = dict(mean=np.nanmean, max=np.nanmax, min=np.nanmin, sum=np.nansum)
 
         df["value"] = df["value"].astype("float32")
         df_agg = (
@@ -203,12 +77,14 @@ class WeatherPostprocess:
         for var in df.variable.unique():
             df_subset = df[df.variable == var]
             df_agg = (
-                df_subset[["location", "period", "variable", "value", self.year_column]]
+                df_subset[["location", "period", self.year_column, "variable", "value"]]
                 .groupby(["location", self.year_column, "variable", "period"])
                 .sum()
             )
             df_agg = df_agg.groupby(level=0).cumsum().reset_index()
-            df_agg = df_agg.rename(columns={"value": "sum_value"})
+            df_agg = df_agg.rename(
+                columns={"value": "cumsum_value", "location": self.id_column}
+            )
             df_cum = df_cum.append(df_agg)
 
         return df_cum
@@ -240,16 +116,17 @@ class WeatherPostprocess:
         # Left join periods to the original dataframe
         df_resampled["timestamp"] = [str(k) for k in df_resampled["timestamp"].values]
         df_resampled["timestamp"] = [
-            np.datetime64(str(year) + "-" + "-".join(k.split("-")[1:]))
+            np.datetime64(f"{str(year)}-" + "-".join(k.split("-")[1:]))
             for year, k in zip(
                 df_resampled[self.year_column], df_resampled["timestamp"]
             )
         ]
+
         return df_resampled
 
-    def _get_periods(self, df_cehub_):
+    def _get_periods(self, df_Meteoblue_):
         """
-        Assign the periods to the file obtained through CEHub
+        Assign the periods to the file obtained through Meteoblue
         """
 
         def _get_year(x):
@@ -258,17 +135,21 @@ class WeatherPostprocess:
         def _convert_date(x):
             return dateutil.parser.parse(x[:-5])
 
-        df_cehub = df_cehub_.copy()
+        df_Meteoblue = df_Meteoblue_.copy()
 
         # Assign period ids w.r.t the date from the dataframe
-        df_cehub["timestamp"] = [str(k) for k in df_cehub["timestamp"]]
+        df_Meteoblue["timestamp"] = [str(k) for k in df_Meteoblue["timestamp"]]
 
         # Assign dates to a single year to retrieve periods
-        df_cehub[self.year_column] = df_cehub["timestamp"].apply(lambda x: _get_year(x))
-        df_cehub["timestamp"] = df_cehub["timestamp"].apply(lambda x: _convert_date(x))
+        df_Meteoblue[self.year_column] = df_Meteoblue["timestamp"].apply(
+            lambda x: _get_year(x)
+        )
+        df_Meteoblue["timestamp"] = df_Meteoblue["timestamp"].apply(
+            lambda x: _convert_date(x)
+        )
 
         dict_year = {}
-        for year in df_cehub[self.year_column].drop_duplicates().values:
+        for year in df_Meteoblue[self.year_column].drop_duplicates().values:
             dict_year[year] = self._get_resampled_periods()
 
         periods = pd.DataFrame(dict_year)
@@ -277,9 +158,9 @@ class WeatherPostprocess:
         df_resampled = self._format_periods(periods)
 
         df = pd.merge(
-            df_resampled, df_cehub, on=["timestamp", self.year_column], how="right"
+            df_resampled, df_Meteoblue, on=["timestamp", self.year_column], how="right"
         )
-        # Interpolate over new periods
+
         fill_nas = (
             df[["period", "location"]]
             .groupby("location")
@@ -296,7 +177,7 @@ class WeatherPostprocess:
 
     def _apply_convert_doy(self, feature):
         """
-        Convert dates from CEhub format into day of the year
+        Convert dates from Meteoblue format into day of the year
         """
 
         def _convert_doy_to_date(doy, year):
@@ -336,7 +217,9 @@ class WeatherPostprocess:
         df = df.drop_duplicates(subset=["location", "timestamp", "variable"])
 
         df = df[df.location.isin(self.input_file[self.id_column].unique())]
-        df, periods_df = self._get_periods(df_cehub_=df)
+
+        # Reformat into time series only if it is a dynamic variable
+        df, periods_df = self._get_periods(df_Meteoblue_=df.copy())
         df["value"] = df["value"].astype("float32")
 
         if self.planting_date_column is not None:
@@ -344,7 +227,16 @@ class WeatherPostprocess:
                 periods_df, feature="planting_date"
             )
             df = pd.merge(
-                df[["period", "timestamp", "location", "variable", "value"]],
+                df[
+                    [
+                        "period",
+                        "timestamp",
+                        "location",
+                        "variable",
+                        "value",
+                        self.year_column,
+                    ]
+                ],
                 periods_sowing,
                 left_on="location",
                 right_on=self.id_column,
@@ -407,40 +299,91 @@ class WeatherPostprocess:
 
         return diff_weather
 
-    def execute(self, df_weather, stat="mean", return_pivot=False):
+    def format_static_variable(self, df_weather, return_pivot=False):
         """
-        Execute the workflow to get the dataframe aggregated into periods from CEHub data
-        :param df_weather (pd.DataFrame) : cehub dataframe with stat as daily descriptive statistics
+        Format static features from a given output of Meteoblue
+        Parameters
+        ----------
+        df_weather (pd.DataFrame) : Meteoblue dataframe with stat as daily descriptive statistics
+        return_pivot (bool):
+
+        Returns
+        -------
+        """
+        df_weather = df_weather[~df_weather.variable.isin(["variable"])]
+        df_weather = df_weather.drop_duplicates(
+            subset=["location", "timestamp", "variable"]
+        )
+        df_weather = df_weather[
+            df_weather.location.isin(self.input_file[self.id_column].unique())
+        ]
+
+        df_agg = (
+            df_weather[["variable", "location", "value"]]
+            .groupby(["variable", "location"])
+            .agg("mean")
+        )
+        df_agg.reset_index(inplace=True)
+        df_agg = df_agg.rename(
+            columns={"value": "static_value", "location": self.id_column}
+        )
+        if return_pivot:
+            df_agg = pd.pivot_table(
+                df_agg,
+                values=["static_value"],
+                index=[self.id_column],
+                columns=["variable"],
+                dropna=False,
+            )
+            df_agg.reset_index(inplace=True)
+            df_agg.columns = [
+                "-".join([str(x) for x in col]).strip() for col in df_agg.columns.values
+            ]
+
+        return df_agg
+
+    def execute(self, df_weather, stat=None, return_pivot=False):
+        """
+        Execute the workflow to get the dataframe aggregated into periods from Meteoblue data
+        :param df_weather (pd.DataFrame) : Meteoblue dataframe with stat as daily descriptive statistics
+        :param return_pivot
         :return:
             pd.DataFrame with mean, min, max, sum aggregated into periods defined w.r.t the resample_range
         """
-
-        if stat not in ["mean", "min", "max", "sum", "cumsum"]:
+        # If resampling range in days >1, it means that we have periods. Therefore, we need to aggregate them
+        if self.resample_range[-1] > 1 and stat not in [
+            "mean",
+            "min",
+            "max",
+            "sum",
+            "cumsum",
+        ]:
             raise ValueError(
                 "Descriptive statistic must be 'mean', 'min', 'max', 'sum' or 'cumsum'"
             )
 
         init_weather = self._init_df(df=df_weather.copy())
 
-        if stat != "cumsum":
-            df_stats = self._get_descriptive_period(df=init_weather, stat=stat)
-        else:
+        if stat == "cumsum":
             df_stats = self._get_cumulated_period(df=init_weather)
+        else:
+            df_stats = self._get_descriptive_period(df=init_weather, stat=stat)
 
         df_stats = df_stats.sort_values(
             by=[self.id_column, self.year_column, "variable"]
         )
 
-        if return_pivot:
-            output = self._prepare_output_file(df_stats=df_stats, stat=stat)
-            output.columns = ["".join(k.split("value-")) for k in output.columns]
-            output.columns = [
-                tuple(k.split("-")) if k != self.id_column else k
-                for k in output.columns
-            ]
-            output.columns = [
-                (k[0], float(k[1])) if k != self.id_column else k
-                for k in output.columns
-            ]
+        if not return_pivot:
+            return df_stats
+
+        output = self._prepare_output_file(df_stats=df_stats, stat=stat)
+        output.columns = ["".join(k.split("value-")) for k in output.columns]
+        output.columns = [
+            tuple(k.split("-")) if k != self.id_column else k for k in output.columns
+        ]
+        output.columns = [
+            (k[0], float(k[1])) if (type(k) is tuple and len(k) > 1) else k
+            for k in output.columns
+        ]
 
         return output

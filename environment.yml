@@ -2,13 +2,13 @@ name: eo-crops
 channels:
   - conda-forge
 dependencies:
-  - python=3.7
+  - python=3.9
   - pip
+  - cartopy=0.21.0
+  - libgdal=3.6.0
+  - gdal=3.6.0
+  - pandoc
   - pip :
-      - eo-learn
-      - sentinelhub
       - -r requirements.txt
-  - gdal
-
 
 

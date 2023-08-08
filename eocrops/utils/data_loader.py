@@ -6,6 +6,8 @@ import numpy as np
 import os
 
 from eolearn.geometry import ErosionTask
+
+import eocrops.tasks.curve_fitting
 import eocrops.tasks.preprocessing as preprocessing
 import warnings
 from eocrops.tasks.vegetation_indices import VegetationIndicesS2 as s2_vis
@@ -276,10 +278,14 @@ class EOPatchDataset:
                 int(range_doy[1]) + window_harvest,
             )
 
-            curve_fitting = preprocessing.DoublyLogistic(range_doy=range_doy)
+            curve_fitting = eocrops.tasks.curve_fitting.DoublyLogistic(
+                range_doy=range_doy
+            )
 
             if asym_gaussian:
-                curve_fitting = preprocessing.AsymmetricGaussian(range_doy=range_doy)
+                curve_fitting = eocrops.tasks.curve_fitting.AsymmetricGaussian(
+                    range_doy=range_doy
+                )
 
             #################################################################
             data = []
@@ -333,7 +339,7 @@ class EOPatchDataset:
         features_list (list) : list of features to read
         column_path (str) : column name with the corresponding path of each EOPatch
 
-        Returns (np.array) : np.array from the input file
+        Returns (np.array) : np.array from the inputs file
         -------
 
         """
@@ -434,7 +440,7 @@ class EOPatchDataset:
         features_list (list) : list of features to read
         column_path (str) : column name with the corresponding path of each EOPatch
 
-        Returns (np.array) : np.array from the input file
+        Returns (np.array) : np.array from the inputs file
         -------
 
         """

@@ -1,5 +1,7 @@
 import warnings
 
+import eocrops.tasks.curve_fitting
+
 warnings.filterwarnings("ignore")
 
 import geopandas as gpd
@@ -8,8 +10,8 @@ from scipy.signal import savgol_filter
 import os
 import numpy as np
 import eocrops
-from eocrops.input import utils_sh as utils_sh
-from eocrops.input import sentinel2 as sentinel2
+from eocrops.inputs import utils_sh as utils_sh
+from eocrops.inputs import sentinel2 as sentinel2
 from eocrops.tasks import preprocessing as preprocessing
 
 dir_path = os.path.dirname(os.getcwd())
@@ -43,7 +45,7 @@ patch = sentinel2.workflow_instructions_S2L2A(
     interpolation={"interpolate": True, "period_length": 8}
 )
 
-curve_fit = preprocessing.AsymmetricGaussian(range_doy=(100, 365))
+curve_fit = eocrops.tasks.curve_fitting.AsymmetricGaussian(range_doy=(100, 365))
 ts_mean = curve_fit.get_time_series_profile(
     patch, feature="LAI", feature_mask="MASK"
 ).flatten()

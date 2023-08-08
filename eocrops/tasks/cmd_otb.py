@@ -16,11 +16,17 @@ class MultitempSpeckleFiltering(EOTask):
     def __init__(self, otb_path, feature_name="BANDS-S1-IW", path_in="./", window=3):
         """
         Multitemporal filtering ONLY for Sentinel-1 data using OTB
-        Parameters:
-            otb_path (str) : Path where bin from Orfeo Toolbox package is installed
-            path_in (str) : Path to write the temporary files (removed at the end of the process)
-            window (int) : window to apply for Quegan filter for SAR data
+
+        Parameters
+        ----------
+        otb_path : str
+                Path where bin from Orfeo Toolbox package is installed
+        path_in : str
+         Path to write the temporary files (removed at the end of the process)
+        window : int
+         window to apply for Quegan filter for SAR data
         """
+
         self.feature_name = feature_name
         self.otb_path = otb_path
         self.path_in = path_in
@@ -100,6 +106,7 @@ class MultitempSpeckleFiltering(EOTask):
         export.execute(eopatch)
 
     def execute(self, eopatch, ram=8):
+        """EOTask to execute the speckle filtering over the EOPatch"""
         if os.path.exists(os.path.join(self.path_in, "S1_VV")):
             shutil.rmtree(os.path.join(self.path_in, "S1_VV"))
             shutil.rmtree(os.path.join(self.path_in, "S1_VH"))
@@ -159,11 +166,15 @@ class PanSharpening(EOTask):
         path_temporary_files="./tempo",
     ):
         """
-        Multitemporal filtering ONLY for Sentinel-1 data using OTB
+        Pansharpening for VHRS data. You must have a panchromatic band to make it working.
+
         Parameters:
-            fname (str) : Name of the feature stored in data that gathers the bands
-            otb_path (str) : Path where bin from Orfeo Toolbox package is installed
-            path_temporary_files (str) : path to save the temporary geotiff file to call OTB
+            fname : str
+                Name of the feature stored in data that gathers the bands
+            otb_path : str
+                Path where bin from Orfeo Toolbox package is installed
+            path_temporary_files : str
+                path to save the temporary geotiff file to call OTB
         """
         self.fname = fname
         self.otb_path = otb_path
@@ -221,6 +232,7 @@ class PanSharpening(EOTask):
         shutil.rmtree(self.path_temporary_files)
 
     def execute(self, eopatch, band_indices=None):
+        """EOTask to execute the Pansharpening given the EOPatch"""
         times = list(eopatch.timestamp)
 
         pan_bands = []

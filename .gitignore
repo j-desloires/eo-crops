@@ -26,6 +26,9 @@ wheels/
 .idea
 build/lib/eocrops
 
+# IDE config
+public
+
 
 # pytest
 .pytest_cache/
