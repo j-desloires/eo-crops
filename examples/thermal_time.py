@@ -205,6 +205,6 @@ for _, _, fname_, _, num in features_data:
     # Contenate all the bands
     ds = utils.concatenate_outputs(ds, output, fname_, id_column="ID")
 
-
+cols_vv = [k for k in ds.columns if 'VV' in k]
 # Save the output file
 ds.to_csv(os.path.join(PATH_EXPERIMENT, "rapeseed_data_thermal_time.csv"), index=False)

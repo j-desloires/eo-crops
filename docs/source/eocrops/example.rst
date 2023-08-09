@@ -27,7 +27,7 @@ The objective os this subsection is to show :
 .. toctree::
 
     examples/Weather data.ipynb
-
+    examples/Thermal time.ipynb
 
 Data loader
 -----------
