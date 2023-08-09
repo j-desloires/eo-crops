@@ -5,12 +5,16 @@
 
 ![logo](docs/figures/s2_agriculture.jpg)
 
+https://eo-crops.readthedocs.io/en/latest/
+
 🌾 **Python library for crop monitoring using Earth Observations**🛰
 
 </div>
 
 A small python module that brings together the features of SentinelHub, the eo-learn python library and OrfeoToolBox for basic downloading and processing of Earth observation data for crop monitoring. 
 SentinelHub account can be sponsored by the [ESA Network-of-Resources (NoR) program](https://nor-discover.cloudeo.group/Service/EDC-Sentinel-Hub/SponsoringWizardPricelist).
+
+The documentation is available on this [link](https://eo-crops.readthedocs.io/en/latest/)
 
 # Installation
 
