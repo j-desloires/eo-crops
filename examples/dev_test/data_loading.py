@@ -1,10 +1,11 @@
-import pandas as pd
-from eolearn.core import EOPatch, FeatureType, EOTask
-import numpy as np
 import os
-from eocrops.utils import data_loader
-import matplotlib.pyplot as plt
+
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from eolearn.core import EOPatch, FeatureType, EOTask
+from eocrops.utils import data_loader
 
 #################################################################################
 
@@ -23,7 +24,6 @@ features_data = [
 
 
 # Read EOPatch into a 3D np.array, where each observation is the median time series of the field
-# self = pipeline_eopatch_tfds
 
 f = os.listdir("/home/johann/Documents/DATA/EOPatch samples")[1]
 path = os.path.join("/home/johann/Documents/DATA/EOPatch samples", f)
@@ -52,7 +52,6 @@ pipeline_eopatch_tfds = data_loader.EOPatchDataset(
     function=np.nanmedian,  # get average time series from the field
 )
 
-self = pipeline_eopatch_tfds
 path = (
     "/home/johann/Documents/DATA/EOPatch samples/1225-IIJ6395DGGNFA6657ZL-2021_S2_L2A"
 )
@@ -72,13 +71,10 @@ npy_eopatch = pipeline_eopatch_tfds.get_eopatch_tfds(
     algorithm="cubic",
     doubly_logistic=True,
     return_params=False,
-    fit_resampling=True,
     meta_file=file,
     path_column="path",
     planting_date_column="days_planting",
     harvest_date_column="days_harvest",
-    window_planting=5,
-    window_harvest=-5,
 )
 
 # Plot

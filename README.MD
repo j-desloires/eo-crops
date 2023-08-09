@@ -35,6 +35,7 @@ pip install .
 If you want to run a jupyter notebook, you need to install jupyter on the environment. Then, you will be able to select the kernel.
 
 ```
+pip install notebook
 conda install -c anaconda ipykernel -y
 python -m ipykernel install --user --name=eo-crops
 jupyter notebook

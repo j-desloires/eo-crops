@@ -1,13 +1,9 @@
 import aiohttp
 import asyncio
-from io import StringIO
-
+import time
 import pandas as pd
-import dateutil
-import datetime as dt
 
-import numpy as np
-import datetime
+from io import StringIO
 
 
 class WeatherDownload:
@@ -16,7 +12,7 @@ class WeatherDownload:
         api_key,
         shapefile,
         id_column,
-        year_column,
+        timestamp_column,
         queryBackbone=None,
     ):
         """
@@ -30,8 +26,8 @@ class WeatherDownload:
                     Shapefile with point or polygon geometry. Each observation is a request to obtain the associated meteorological data.
         id_column : str
                    Column from the shapefile containing the identifier of each observation. The output file will have this identifier also.
-        year_column : str
-                  Column from the shapefile containing the year (str) of each observation to download the weather data.
+        time_interval : tuple
+                  Time interval (yyyy-mm-dd, yyyy-mm-dd)
         queryBackbone : dict
                Dictionary containing the query backbone of meteoblue. By default, it is None as we defined it an example.
 
@@ -48,7 +44,7 @@ class WeatherDownload:
 
         self.ids = shapefile[id_column].astype(str).values
         self.coordinates = shapefile["coordinates"].values
-        self.years = shapefile[year_column].astype(str).values
+        self.timestamps = shapefile[timestamp_column].values
 
         self.url_query = "http://my.meteoblue.com/dataset/query"
         self.url_queue = "http://queueresults.meteoblue.com/"
@@ -72,26 +68,26 @@ class WeatherDownload:
             }
         self.queryBackbone = queryBackbone
 
-    async def _get_jobIDs_from_query(self, query, time_interval=("01-01", "12-31")):
+    async def _get_jobIDs_from_query(self, query):
         """
         Get unique job id from a given query and a time interval
         """
 
-        async def _make_ids(ids, coordinates, dates):
-            for i, (id, coord, date) in enumerate(zip(ids, coordinates, dates)):
-                yield i, id, coord, date
+        async def _make_ids(ids, coordinates, timestamps):
+            for i, (id, coord, timestamp) in enumerate(zip(ids, coordinates, timestamps)):
+                yield i, id, coord, timestamp
 
         jobIDs = []
 
-        async for i, id, coord, date in _make_ids(
-            self.ids, self.coordinates, self.years
+        async for i, id, coord, time_interval in _make_ids(
+            self.ids, self.coordinates, self.timestamps
         ):
             await asyncio.sleep(
                 0.5
             )  # query spaced by 05 seconds => 2 queries max per queueTime (limit = 5)
             start_time, end_time = (
-                f"{str(date)}-" + time_interval[0],
-                f"{str(date)}-" + time_interval[1],
+                time_interval[0],
+                time_interval[1],
             )
             self.queryBackbone["geometry"]["geometries"] = [
                 dict(type="MultiPoint", coordinates=[coord], locationNames=[id])
@@ -160,7 +156,7 @@ class WeatherDownload:
         df_output.columns = cols
         return df_output
 
-    def execute(self, query, time_interval=("01-01", "12-31"), conc_req=5):
+    def execute(self, query, conc_req=5):
         """
         Download Meteoblue data given a query and a time interval
 
@@ -168,7 +164,7 @@ class WeatherDownload:
         ----------
         query : dict
             Dictionary of agroclimatic variables
-        time_interval : tuple
+        self.time_interval : tuple
             Time interval to extract the data
         conc_req : int
             Maximum number of requests in concurrency
@@ -181,7 +177,7 @@ class WeatherDownload:
         loop = asyncio.new_event_loop()
         try:
             jobIDs = loop.run_until_complete(
-                self._get_jobIDs_from_query(query, time_interval)
+                self._get_jobIDs_from_query(query)
             )
             time.sleep(2)
             dfs = loop.run_until_complete(

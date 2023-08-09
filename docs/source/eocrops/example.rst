@@ -24,6 +24,10 @@ The objective os this subsection is to show :
 * How to download weather data using meteoblue API
 * How to resample time series over thermal time for agricultural monitoring
 
+.. toctree::
+
+    examples/Weather data.ipynb
+
 
 Data loader
 -----------

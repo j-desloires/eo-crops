@@ -28,7 +28,7 @@ build/lib/eocrops
 
 # IDE config
 public
-
+data/experiments
 
 # pytest
 .pytest_cache/

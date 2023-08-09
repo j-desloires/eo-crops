@@ -10,5 +10,6 @@ dependencies:
   - pandoc
   - pip :
       - -r requirements.txt
+      #- git+https://github.com/WFP-VAM/modape if you want to apply whitakker smoothing
 
 

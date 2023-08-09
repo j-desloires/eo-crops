@@ -11,8 +11,8 @@ import pandas as pd
 class TempResampling:
     def __init__(
         self,
-        range_dates=("01-01", "12-31"),
-        stop=("11-01"),
+        range_dates=("2017-01-01", "2017-12-31"),
+        stop=("2017-12-31"),
         smooth=False,
         id_column="key",
         varname_gdd="sum_Growing Degree days daily max/min",
@@ -64,6 +64,8 @@ class TempResampling:
         self.bands = bands
         self.range_dates = range_dates
         self.stop = stop
+        if self.stop is None:
+            self.stop = self.range_dates[-1]
         self.varname_gdd = varname_gdd
         self.period_nas_rate = period_nas_rate
         self.drop_nas_rate = drop_nas_rate
@@ -96,13 +98,13 @@ class TempResampling:
 
         return weather_df_daily
 
-    def _get_resampled_periods(self, days_range, end=2021):
+    def _get_resampled_periods(self, days_range):
         """
-        Get the resampled periods from the resample range
+        Get the resampled periods from the resample range of satellite data
         """
         resample_range_ = (
-            f"{str(end)}-" + self.range_dates[0],
-            f"{str(end)}-" + self.range_dates[1],
+            self.range_dates[0],
+            self.range_dates[1],
             days_range,
         )
 
@@ -125,9 +127,14 @@ class TempResampling:
         df = pd.DataFrame(yield_data)
         df.columns = [f[0] for f in feature_vector]
 
-        df[self.id_column] = df[self.id_column].apply(
-            lambda x: x.decode("utf-8").replace("/", "\\").split("\\")[-1]
-        )
+        # Sometimes, numpy encode string ==> need to decode
+        try:
+            df[self.id_column] = df[self.id_column].apply(
+                lambda x: x.decode("utf-8").replace("/", "\\").split("\\")[-1]
+            )
+        except:
+            df[self.id_column] = df[self.id_column].astype(str)
+
 
         if self.subset_id_fields is not None:
             with contextlib.suppress(UnicodeDecodeError, AttributeError):
@@ -183,9 +190,7 @@ class TempResampling:
                 "The column {0} is not in the meta_file".format(self.id_column)
             )
 
-        self.X = X[
-            self.meta.index,
-        ]
+        self.X = X[self.meta.index,]
 
         self.sat_load = True
 
@@ -257,11 +262,11 @@ class TempResampling:
         merged_df[fname] = merged_df.groupby([self.id_column]).cumsum()[fname]
         return merged_df
 
-    def _get_gdd(self, fname="sum_Growing Degree Days"):
+    def _get_gdd(self):
         """
         Compute cumulated sum GDD
         """
-        gdd_df_daily = self.get_weather_feature(fname=fname)
+        gdd_df_daily = self.get_weather_feature(fname=self.varname_gdd)
         return gdd_df_daily.cumsum(axis=0)
 
     def get_sat_features(self, feature_data, fname):
@@ -355,7 +360,7 @@ class TempResampling:
             df_daily, gdd_df_daily, on=[self.id_column, "variable"], how="right"
         )
 
-        stop_date = np.datetime64("2021-" + self.stop + "T00:00:00.000000000")
+        stop_date = np.datetime64(self.stop + "T00:00:00.000000000")
         merged_df = merged_df[merged_df["variable"] < stop_date]
 
         return merged_df
@@ -397,7 +402,7 @@ class TempResampling:
         """
         self._check_status()
 
-        gdd_df_daily = self._get_gdd(fname=self.varname_gdd)
+        gdd_df_daily = self._get_gdd()
 
         if fname in self.bands:
             s2_data = self._get_s2_band(fname)
@@ -433,7 +438,7 @@ class TempResampling:
         """Get last accumulated GDD observed for each observation"""
         self._check_status()
 
-        gdd_df_daily = self._get_gdd(fname=self.varname_gdd)
+        gdd_df_daily = self._get_gdd()
         gdd_df_daily = gdd_df_daily.T
         gdd_df_daily.reset_index(inplace=True)
 
@@ -658,7 +663,7 @@ class TempResampling:
         """
         self._check_status()
 
-        gdd_df_daily = self._get_gdd(fname=self.varname_gdd)
+        gdd_df_daily = self._get_gdd()
 
         if fname in self.bands:
             s2_data = self._get_s2_band(fname)
@@ -666,7 +671,7 @@ class TempResampling:
             s2_data = self.get_sat_features(features_data, fname)
 
         s2_data_daily = self._resample_daily_satellite(
-            s2_data,
+            original_data=s2_data,
             id_fields=gdd_df_daily.columns,
             days_range=period_length,
             remove_outliers=remove_outliers,
@@ -720,7 +725,7 @@ class TempResampling:
                 "You must first load the weather data using the load_weather_data() method."
             )
 
-        gdd_df_daily = self._get_gdd(self.varname_gdd)
+        gdd_df_daily = self._get_gdd()
         weather_df_daily = self.get_weather_feature(fname)
 
         dict_parameters = dict(

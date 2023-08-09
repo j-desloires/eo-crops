@@ -1,13 +1,12 @@
+import os
+import numpy as np
+import pandas as pd
+
 import sentinelhub
 from sentinelhub import CRS
-import math
-from shapely.geometry import *
 
 import rasterio
 import warnings
-
-import numpy as np
-import os
 
 
 def save_numpy(path, array, name_array):
@@ -83,3 +82,22 @@ def get_resampled_periods(start, end, year, days_range=1):
         days.append(days[-1] + step)
     days = [str(day).split(" ")[0] for day in days]
     return days
+
+
+def concatenate_outputs(ds, output, fname_, id_column="path"):
+    '''Perform a loop on multiple dataframes on axis=0 and concatenate them'''
+    print(fname_)
+
+    new_cols = output.columns.to_flat_index()
+    new_cols = [
+        (k[0], int(k[1])) if k not in [id_column, (id_column, "")] else k
+        for k in new_cols
+    ]
+    output.columns = new_cols
+    output = output.rename(columns={(id_column, ""): id_column})
+
+    if ds.empty:
+        ds = ds.append(output)
+    else:
+        ds = pd.merge(ds, output, on=id_column, how="left")
+    return ds

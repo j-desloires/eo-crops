@@ -1,3 +1,12 @@
+import warnings
+
+import numpy as np
+
+from eolearn.core import FeatureType, EOTask
+from scipy.optimize import curve_fit
+from scipy.interpolate import *
+
+
 class CurveFitting:
     def __init__(self, range_doy=(1, 365), q=0.5):
         self.range_doy = range_doy
@@ -294,29 +303,22 @@ class CurveFitting:
         return replace_y
 
     def _crop_values(self, ts_mean, min_threshold, max_threshold):
-        ts_mean[ts_mean < float(min_threshold)] = np.nan
         if max_threshold:
             ts_mean[ts_mean > float(max_threshold)] = max_threshold
+        if min_threshold:
+            ts_mean[ts_mean < float(min_threshold)] = min_threshold
         return ts_mean
 
     @staticmethod
     def _nan_helper(y):
         return np.isnan(y), lambda z: z.nonzero()[0]
 
-    def _resample_ts(
+    def resample_ts(
         self, doy, ts_mean_, resampling=8, min_threshold=None, max_threshold=None
     ):
         """
         Apply resampling over fixed period before applying whitakker smoothing
         """
-        ts_mean_[
-            np.where(
-                (ts_mean_ < min_threshold)
-                & (doy.reshape(doy.shape[0], 1) > 120)
-                & (doy.reshape(doy.shape[0], 1) < 320)
-            )
-        ] = np.nan
-
         nans, x = self._nan_helper(ts_mean_)
         ts_mean_[nans] = np.interp(x(nans), x(~nans), ts_mean_[~nans])
         ts_mean = self._crop_values(ts_mean_, min_threshold, max_threshold)
@@ -324,9 +326,15 @@ class CurveFitting:
         # Interpolate the data to a regular time grid
         if resampling:
             try:
-                cs = Akima1DInterpolator(doy, ts_mean)
-                new_doy = np.arange(1, 365, resampling)
-                ts_mean = cs(new_doy)
+                new_doy = np.arange(self.range_doy[0], self.range_doy[-1]+1, resampling)
+                ts_mean_resampled = np.empty(
+                    (ts_mean.shape[0], len(new_doy), ts_mean.shape[2])
+                )
+                for i in range(ts_mean.shape[0]):
+                    for j in range(ts_mean.shape[2]):
+                        cs = Akima1DInterpolator(doy, ts_mean[i, :, j])
+                        ts_mean_resampled[i, :, j] = cs(new_doy)
+                ts_mean = ts_mean_resampled
 
             except Exception as e:
                 warnings.WarningMessage(
@@ -337,9 +345,7 @@ class CurveFitting:
 
         return new_doy, ts_mean
 
-    def _fit_whittaker(
-        self, ts_mean, degree_smoothing, weighted=False, min_threshold=0
-    ):
+    def fit_whitakker(self, ts_mean, degree_smoothing, weighted=False, min_threshold=0):
         """
         Fit whitakker smoothing given a ndarray (1,T,D)
         """
@@ -424,7 +430,7 @@ class CurveFitting:
         ts_data = self._crop_values(ts_data, min_threshold, max_threshold)
 
         # Resampling
-        doy_resampled, ts_data_resampled = self._resample_ts(
+        doy_resampled, ts_data_resampled = self.resample_ts(
             doy=doy,
             ts_mean_=ts_data,
             resampling=resampling,
