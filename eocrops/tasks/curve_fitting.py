@@ -326,7 +326,9 @@ class CurveFitting:
         # Interpolate the data to a regular time grid
         if resampling:
             try:
-                new_doy = np.arange(self.range_doy[0], self.range_doy[-1]+1, resampling)
+                new_doy = np.arange(
+                    self.range_doy[0], self.range_doy[-1] + 1, resampling
+                )
                 ts_mean_resampled = np.empty(
                     (ts_mean.shape[0], len(new_doy), ts_mean.shape[2])
                 )

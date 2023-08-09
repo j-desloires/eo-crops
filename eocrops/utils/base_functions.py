@@ -85,7 +85,7 @@ def get_resampled_periods(start, end, year, days_range=1):
 
 
 def concatenate_outputs(ds, output, fname_, id_column="path"):
-    '''Perform a loop on multiple dataframes on axis=0 and concatenate them'''
+    """Perform a loop on multiple dataframes on axis=0 and concatenate them"""
     print(fname_)
 
     new_cols = output.columns.to_flat_index()

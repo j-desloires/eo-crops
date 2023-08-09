@@ -74,7 +74,9 @@ class WeatherDownload:
         """
 
         async def _make_ids(ids, coordinates, timestamps):
-            for i, (id, coord, timestamp) in enumerate(zip(ids, coordinates, timestamps)):
+            for i, (id, coord, timestamp) in enumerate(
+                zip(ids, coordinates, timestamps)
+            ):
                 yield i, id, coord, timestamp
 
         jobIDs = []
@@ -176,9 +178,7 @@ class WeatherDownload:
 
         loop = asyncio.new_event_loop()
         try:
-            jobIDs = loop.run_until_complete(
-                self._get_jobIDs_from_query(query)
-            )
+            jobIDs = loop.run_until_complete(self._get_jobIDs_from_query(query))
             time.sleep(2)
             dfs = loop.run_until_complete(
                 self._gather_with_concurrency(

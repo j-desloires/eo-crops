@@ -135,7 +135,6 @@ class TempResampling:
         except:
             df[self.id_column] = df[self.id_column].astype(str)
 
-
         if self.subset_id_fields is not None:
             with contextlib.suppress(UnicodeDecodeError, AttributeError):
                 self.subset_id_fields = [

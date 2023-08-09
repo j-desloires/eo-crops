@@ -16,9 +16,9 @@ from shapely.geometry import Point
 ###############################################################################################################
 # Define the path to get store the data
 PATH_EXPERIMENT = os.path.join("./data", "experiments")
-TIME_INTERVAL=("2017-08-15", "2018-07-15")
+TIME_INTERVAL = ("2017-08-15", "2018-07-15")
 
-YEAR = TIME_INTERVAL[-1].split('-')[0]
+YEAR = TIME_INTERVAL[-1].split("-")[0]
 
 if not os.path.exists(PATH_EXPERIMENT):
     os.mkdir(PATH_EXPERIMENT)
@@ -34,7 +34,7 @@ features_data = [("DATA", f, f, "float32", 1) for f in sentinel_data["band"].uni
 ### Get the informations regarding the location
 meta_data = sentinel_data[["ID", "lon", "lat"]].drop_duplicates()
 ### Add in the metadata file the dates of interest in the time series
-meta_data['timestamp'] = [TIME_INTERVAL]
+meta_data["timestamp"] = [TIME_INTERVAL]
 ### Convert the coordinates into Point
 meta_data["geometry"] = [
     Point(x, y) for x, y in zip(meta_data["lon"], meta_data["lat"])
@@ -71,8 +71,9 @@ end_season = datetime.datetime.strptime(TIME_INTERVAL[1], "%Y-%m-%d")
 subset_dates = [k for k in dates if k >= start_season and k <= end_season]
 len(subset_dates)
 
+
 ########################################################################################
-# Check the dates
+# Check the dates and resample the data over fixed periods
 def days_since_first(dates):
     """Compute number of days since the start of the season"""
     first_date = dates[0]
@@ -109,7 +110,8 @@ plt.plot(subset_dates_doy, array_data[0, :, 1])
 plt.plot(new_dates_doy, array_resample[0, :, 1])
 plt.show()
 
-#curve_fit.fit_whitakker(array_resample, degree_smoothing=1)
+# If you want to smooth the data
+# array_resample = curve_fit.fit_whitakker(array_resample, degree_smoothing=1)
 
 
 ########################################
@@ -122,8 +124,8 @@ np.save(file=f"{PATH_EXPERIMENT}/satellite_data.npy", arr=array_resample)
 pipeline_cehub = WeatherDownload(
     api_key="",  # Please put your meteoblue API here
     shapefile=meta_data,
-    id_column="ID",#column from the meta_data with the ID of the field
-    timestamp_column='timestamp', # timestamp of interest
+    id_column="ID",  # column from the meta_data with the ID of the field
+    timestamp_column="timestamp",  # timestamp of interest
 )
 
 query_base = [
@@ -143,7 +145,7 @@ query_sum[0]["codes"].extend(
     ]
 )
 weather_data = pipeline_cehub.execute(query=query_sum)
-weather_data.to_csv(f"{PATH_EXPERIMENT}/GDD_data.csv", index = False)
+weather_data.to_csv(f"{PATH_EXPERIMENT}/GDD_data.csv", index=False)
 
 ## Format the data to compute accumulated GDUs
 weather_data = pd.read_csv(f"{PATH_EXPERIMENT}/GDD_data.csv")
@@ -159,19 +161,21 @@ pipeline_refactor = WeatherPostprocess(
 )
 
 daily_gdus = pipeline_refactor.execute(
-    df_weather=weather_data, stat='sum', return_pivot=True
+    df_weather=weather_data, stat="sum", return_pivot=True
 )
-daily_gdus.to_csv(f"{PATH_EXPERIMENT}/GDD_data.csv", index = False)
+daily_gdus.to_csv(f"{PATH_EXPERIMENT}/GDD_data.csv", index=False)
 
 ###############################################################################################################
 # Thermal time resampling
 
 gdu = resampling.TempResampling(
     range_dates=TIME_INTERVAL,  #  extracted from weather data
-    stop=TIME_INTERVAL[-1],  # Stopping date for yield prediction model (useful for in season)
+    stop=TIME_INTERVAL[
+        -1
+    ],  # Stopping date for yield prediction model (useful for in season)
     id_column="ID",  # Ids of the observations, which is the saving path of EOPatch
     smooth=True,  # Apply smoothing using sg filter
-    period_nas_rate=0.2
+    period_nas_rate=0.2,
 )
 
 # You must load those 3 files that you did in the step data_loader to do the resampling
@@ -189,8 +193,8 @@ kwargs_input = dict(
     stat="mean",  # aggregation over GDD periods (mean)
     thermal_time=True,  # resample over thermal time? otherwise, calendar time
     features_data=features_data,
-    increment=120, #Number of GDDs per period (if thermal_time=False, you can specify 10 for 10-day period)
-    period_length=6
+    increment=120,  # Number of GDDs per period (if thermal_time=False, you can specify 10 for 10-day period)
+    period_length=6,
 )
 
 # Prepare the output file with VH and VV resampled over thermal time
@@ -203,4 +207,4 @@ for _, _, fname_, _, num in features_data:
 
 
 # Save the output file
-ds.to_csv(os.path.join(PATH_EXPERIMENT, 'rapeseed_data_thermal_time.csv'), index = False)
+ds.to_csv(os.path.join(PATH_EXPERIMENT, "rapeseed_data_thermal_time.csv"), index=False)

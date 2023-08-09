@@ -35,7 +35,7 @@ class WeatherPostprocess:
 
         self.resample_range = resample_range
         self.input_file = shapefile.copy()
-        self.year_column = 'Year'
+        self.year_column = "Year"
         if self.start_season_column is not None:
             if self.start_season_column not in list(shapefile.columns):
                 raise ValueError(
@@ -136,9 +136,9 @@ class WeatherPostprocess:
         df_Meteoblue["timestamp"] = [str(k) for k in df_Meteoblue["timestamp"]]
 
         # Assign dates to a single year to retrieve periods
-        df_Meteoblue[self.year_column] = df_Meteoblue["timestamp"].apply(
-            lambda x: _get_year(x)
-        ).astype(str)
+        df_Meteoblue[self.year_column] = (
+            df_Meteoblue["timestamp"].apply(lambda x: _get_year(x)).astype(str)
+        )
         df_Meteoblue["timestamp"] = df_Meteoblue["timestamp"].apply(
             lambda x: _convert_date(x)
         )
@@ -211,16 +211,18 @@ class WeatherPostprocess:
         df = df[~df.variable.isin(["variable"])]
         df = df.drop_duplicates(subset=["location", "timestamp", "variable"])
         self.input_file[self.id_column] = self.input_file[self.id_column].astype(str)
-        df['location'] = df['location'].astype(str)
+        df["location"] = df["location"].astype(str)
 
         df = df[df.location.isin(self.input_file[self.id_column].unique())]
 
         # Reformat into time series only if it is a dynamic variable
         df, periods_df = self._get_periods(df_Meteoblue_=df.copy())
 
-        if self.resample_range[0].split('-')[0] != self.resample_range[1].split('-')[0]:
-            dates = periods_df['timestamp'].values
-            periods_df['period'] = (dates - dates[0]).astype('timedelta64[D]').astype(int)
+        if self.resample_range[0].split("-")[0] != self.resample_range[1].split("-")[0]:
+            dates = periods_df["timestamp"].values
+            periods_df["period"] = (
+                (dates - dates[0]).astype("timedelta64[D]").astype(int)
+            )
 
         df["value"] = df["value"].astype("float32")
 
@@ -271,9 +273,7 @@ class WeatherPostprocess:
                 self.year_column + "--": self.year_column,
             }
         )
-        df_pivot = df_pivot.sort_values(
-            by=[self.id_column]
-        ).reset_index(drop=True)
+        df_pivot = df_pivot.sort_values(by=[self.id_column]).reset_index(drop=True)
         return df_pivot
 
     def _get_temperature_difference(self, min_weather, max_weather):
