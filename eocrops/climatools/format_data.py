@@ -10,8 +10,7 @@ class WeatherPostprocess:
         self,
         shapefile,
         id_column,
-        year_column,
-        resample_range=("-01-01", "-12-31", 1),
+        timestamp_column,
         start_season=None,
     ):
         """
@@ -27,16 +26,16 @@ class WeatherPostprocess:
             Range of dates and daily temporal resolution of the dataset extracted. By default, extractions are made daily from the 1st January to the 31st of December
         id_column : str
             Column from the weather data file which refers to the identifier of the observation.
-        start_season : int, optional
+        start_season : str, optional
             Name of the column with the corresponding day of the year in which we discard data before. It is mostly useful for fields in which we have an idea of the beginning of the season
         """
 
         self.id_column = id_column
         self.start_season_column = start_season
 
-        self.resample_range = resample_range
         self.input_file = shapefile.copy()
-        self.year_column = year_column
+        self.timestamp_column = timestamp_column
+
         if self.start_season_column is not None:
             if self.start_season_column not in list(shapefile.columns):
                 raise ValueError(
@@ -59,14 +58,15 @@ class WeatherPostprocess:
 
         df["value"] = df["value"].astype("float32")
         df_agg = (
-            df[["variable", "period", "location", "value", self.year_column]]
-            .groupby(["variable", "period", "location", self.year_column])
+            df[["variable", "period", "location", "value", "timestamp"]]
+            .groupby(["variable", "period", "location", "timestamp"])
             .agg(dict_stats[stat])
         )
         df_agg.reset_index(inplace=True)
         df_agg = df_agg.rename(
             columns={"value": stat + "_value", "location": self.id_column}
         )
+        df_agg = df_agg.sort_values(by = ['timestamp', 'period'])
         return df_agg
 
     def _get_cumulated_period(self, df):
@@ -78,10 +78,11 @@ class WeatherPostprocess:
         for var in df.variable.unique():
             df_subset = df[df.variable == var]
             df_agg = (
-                df_subset[["location", "period", self.year_column, "variable", "value"]]
-                .groupby(["location", self.year_column, "variable", "period"])
+                df_subset[["location", "period", "variable", "value", "timestamp"]]
+                .groupby(["location", "variable", "period", "timestamp"])
                 .sum()
             )
+            df_agg = df_agg.sort_values(by = ['timestamp', 'period'])
             df_agg = df_agg.groupby(level=0).cumsum().reset_index()
             df_agg = df_agg.rename(
                 columns={"value": "cumsum_value", "location": self.id_column}
@@ -90,14 +91,16 @@ class WeatherPostprocess:
 
         return df_cum
 
-    def _get_resampled_periods(self):
+    def _get_resampled_periods(self, timestamp):
         """
         Get the resampled periods from the resample range
         """
 
-        start_date = dateutil.parser.parse(self.resample_range[0])
-        end_date = dateutil.parser.parse(self.resample_range[1])
-        step = datetime.timedelta(days=self.resample_range[2])
+        start, end = timestamp[0], timestamp[1]
+
+        start_date = dateutil.parser.parse(start)
+        end_date = dateutil.parser.parse(end)
+        step = datetime.timedelta(days=1)
 
         days = [start_date]
         while days[-1] + step < end_date:
@@ -106,17 +109,11 @@ class WeatherPostprocess:
 
     def _format_periods(self, periods):
         df_resampled = pd.melt(periods, id_vars="period").rename(
-            columns={"value": "timestamp", "variable": self.year_column}
+            columns={"value": "timestamp", "variable": 'key'}
         )
 
         # Left join periods to the original dataframe
-        df_resampled["timestamp"] = [str(k) for k in df_resampled["timestamp"].values]
-        df_resampled["timestamp"] = [
-            np.datetime64(f"{str(year)}-" + "-".join(k.split("-")[1:]))
-            for year, k in zip(
-                df_resampled[self.year_column], df_resampled["timestamp"]
-            )
-        ]
+        df_resampled["timestamp"] = [np.datetime64(k) for k in df_resampled["timestamp"].values]
 
         return df_resampled
 
@@ -137,7 +134,7 @@ class WeatherPostprocess:
         df_Meteoblue["timestamp"] = [str(k) for k in df_Meteoblue["timestamp"]]
 
         # Assign dates to a single year to retrieve periods
-        df_Meteoblue[self.year_column] = (
+        df_Meteoblue["Year"] = (
             df_Meteoblue["timestamp"].apply(lambda x: _get_year(x)).astype(str)
         )
         df_Meteoblue["timestamp"] = df_Meteoblue["timestamp"].apply(
@@ -145,24 +142,28 @@ class WeatherPostprocess:
         )
 
         dict_year = {}
-        for year in df_Meteoblue[self.year_column].drop_duplicates().values:
-            dict_year[year] = self._get_resampled_periods()
+        for timestamp in self.input_file["timestamp"].drop_duplicates().values:
+            dict_year[str(timestamp)] = self._get_resampled_periods(timestamp)
 
-        periods = pd.DataFrame(dict_year)
+        periods = pd.DataFrame.from_dict(dict_year)
 
         periods = periods.reset_index().rename(columns={"index": "period"})
         df_resampled = self._format_periods(periods)
 
+        copy_input = self.input_file.copy()
+        copy_input['key'] = copy_input[self.timestamp_column].astype(str)
+        df_Meteoblue = pd.merge(df_Meteoblue, copy_input[[self.id_column, 'key']], left_on = 'location', right_on=self.id_column, how = 'left')
+
         df = pd.merge(
-            df_resampled, df_Meteoblue, on=["timestamp", self.year_column], how="right"
-        )
+            df_resampled, df_Meteoblue, on=["timestamp", 'key'], how="right"
+        ).drop(['key'], axis = 1)
 
         fill_nas = (
             df[["period", "location"]]
             .groupby("location")
             .apply(
                 lambda group: group.interpolate(
-                    method="pad", limit=self.resample_range[-1]
+                    method="pad",
                 )
             )
         )
@@ -171,7 +172,7 @@ class WeatherPostprocess:
 
         return df, df[["period", "timestamp"]].drop_duplicates()
 
-    def _apply_convert_doy(self, feature):
+    def _apply_convert_doy(self, doy_column):
         """
         Convert dates from Meteoblue format into day of the year
         """
@@ -180,10 +181,10 @@ class WeatherPostprocess:
             date = datetime.datetime(int(year), 1, 1) + datetime.timedelta(doy - 1)
             return np.datetime64(date)
 
-        self.input_file[feature] = [
-            _convert_doy_to_date(doy, year)
+        self.input_file[doy_column] = [
+            _convert_doy_to_date(doy, year[0].split('-')[0])
             for doy, year in zip(
-                self.input_file[feature], self.input_file[self.year_column]
+                self.input_file[doy_column], self.input_file[self.timestamp_column]
             )
         ]
 
@@ -218,8 +219,9 @@ class WeatherPostprocess:
 
         # Reformat into time series only if it is a dynamic variable
         df, periods_df = self._get_periods(df_Meteoblue_=df.copy())
+        unique_years = df['Year'].unique()
 
-        if self.resample_range[0].split("-")[0] != self.resample_range[1].split("-")[0]:
+        if len(unique_years)>1:
             dates = periods_df["timestamp"].values
             periods_df["period"] = (
                 (dates - dates[0]).astype("timedelta64[D]").astype(int)
@@ -228,7 +230,7 @@ class WeatherPostprocess:
         df["value"] = df["value"].astype("float32")
 
         if self.start_season_column is not None:
-            periods_sowing = self._add_growing_stage(periods_df, feature="start_season")
+            periods_sowing = self._add_growing_stage(periods_df=periods_df, feature="start_season")
             df = pd.merge(
                 df[
                     [
@@ -237,7 +239,7 @@ class WeatherPostprocess:
                         "location",
                         "variable",
                         "value",
-                        self.year_column,
+                        "Year",
                     ]
                 ],
                 periods_sowing,
@@ -271,7 +273,7 @@ class WeatherPostprocess:
         df_pivot = df_pivot.rename(
             columns={
                 self.id_column + "--": self.id_column,
-                self.year_column + "--": self.year_column,
+                'Year' + "--": 'Year',
             }
         )
         df_pivot = df_pivot.sort_values(by=[self.id_column]).reset_index(drop=True)
@@ -363,17 +365,6 @@ class WeatherPostprocess:
         pd.DataFrame with mean, min, max, sum aggregated into periods defined w.r.t the resample_range
         """
 
-        # If resampling range in days >1, it means that we have periods. Therefore, we need to aggregate them
-        if self.resample_range[-1] > 1 and stat not in [
-            "mean",
-            "min",
-            "max",
-            "sum",
-            "cumsum",
-        ]:
-            raise ValueError(
-                "Descriptive statistic must be 'mean', 'min', 'max', 'sum' or 'cumsum'"
-            )
 
         init_weather = self._init_df(df=df_weather.copy())
 
@@ -383,7 +374,7 @@ class WeatherPostprocess:
             df_stats = self._get_descriptive_period(df=init_weather, stat=stat)
 
         df_stats = df_stats.sort_values(
-            by=[self.id_column, self.year_column, "variable"]
+            by=[self.id_column, "timestamp", "variable"]
         )
 
         if not return_pivot:

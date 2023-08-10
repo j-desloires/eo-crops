@@ -106,8 +106,8 @@ new_dates_doy, array_resample = curve_fit.resample_ts(
     resampling=6,  # Resample every 6 days
 )
 # Check the results
-plt.plot(subset_dates_doy, array_data[0, :, 1])
-plt.plot(new_dates_doy, array_resample[0, :, 1])
+plt.plot(subset_dates_doy, array_data[0, :, 0])
+plt.plot(new_dates_doy, array_resample[0, :, 0])
 plt.show()
 
 # If you want to smooth the data
@@ -145,24 +145,19 @@ query_sum[0]["codes"].extend(
     ]
 )
 weather_data = pipeline_cehub.execute(query=query_sum)
-weather_data.to_csv(f"{PATH_EXPERIMENT}/GDD_data.csv", index=False)
+weather_data.to_csv(f"{PATH_EXPERIMENT}/GDD_data_raw.csv", index=False)
 
 ## Format the data to compute accumulated GDUs
-weather_data = pd.read_csv(f"{PATH_EXPERIMENT}/GDD_data.csv")
+weather_data = pd.read_csv(f"{PATH_EXPERIMENT}/GDD_data_raw.csv")
 
 pipeline_refactor = WeatherPostprocess(
     shapefile=meta_data,
     id_column="ID",
-    year_column='Year',
-    resample_range=(
-        TIME_INTERVAL[0],
-        TIME_INTERVAL[1],
-        1,
-    ),  # You can even resample it using fixed periods of day (e.g. every 8 day)
+    timestamp_column="timestamp",
 )
 
 daily_gdus = pipeline_refactor.execute(
-    df_weather=weather_data, stat="sum", return_pivot=True
+    df_weather=weather_data, stat="sum", return_pivot=False
 )
 daily_gdus.to_csv(f"{PATH_EXPERIMENT}/GDD_data.csv", index=False)
 
@@ -206,6 +201,8 @@ for _, _, fname_, _, num in features_data:
     # Contenate all the bands
     ds = utils.concatenate_outputs(ds, output, fname_, id_column="ID")
 
-cols_vv = [k for k in ds.columns if 'VV' in k]
+cols_vh = [k for k in ds.columns if 'VH' in k]
+plt.plot(ds[cols_vh].values.flatten())
+plt.show()
 # Save the output file
 ds.to_csv(os.path.join(PATH_EXPERIMENT, "rapeseed_data_thermal_time.csv"), index=False)
