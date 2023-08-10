@@ -1,6 +1,3 @@
-Very High Resolution Satellites
-===============================
-
 .. automodule:: eocrops.inputs.vhrs
    :members:
    :undoc-members:

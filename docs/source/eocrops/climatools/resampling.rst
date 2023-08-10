@@ -1,5 +1,5 @@
-resampling
-==========
+Temporal resampling
+===================
 
 .. automodule:: eocrops.climatools.resampling
    :members:

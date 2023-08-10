@@ -1,6 +1,3 @@
-vegetation\_indices
-===================
-
 .. automodule:: eocrops.tasks.vegetation_indices
    :members:
    :undoc-members:

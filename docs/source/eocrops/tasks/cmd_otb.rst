@@ -1,5 +1,5 @@
-cmd\_otb
-========
+OrfeoToolBox commands
+=====================
 
 .. automodule:: eocrops.tasks.cmd_otb
    :members:

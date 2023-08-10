@@ -27,8 +27,8 @@ Weather data
    meteoblue
 
 
-Copernicus products
--------------------
+Public collections
+------------------
 
 .. toctree::
    :maxdepth: 2

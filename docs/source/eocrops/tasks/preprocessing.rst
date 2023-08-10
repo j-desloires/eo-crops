@@ -1,5 +1,5 @@
-preprocessing
-=============
+Spatiotemporal utils
+====================
 
 .. automodule:: eocrops.tasks.preprocessing
    :members:
