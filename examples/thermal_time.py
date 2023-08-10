@@ -201,7 +201,7 @@ for _, _, fname_, _, num in features_data:
     # Contenate all the bands
     ds = utils.concatenate_outputs(ds, output, fname_, id_column="ID")
 
-cols_vh = [k for k in ds.columns if 'VH' in k]
+cols_vh = [k for k in ds.columns if "VH" in k]
 plt.plot(ds[cols_vh].values.flatten())
 plt.show()
 # Save the output file

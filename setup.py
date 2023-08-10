@@ -32,9 +32,7 @@ setuptools.setup(
     author_email="johann.desloires@gmail.com",
     long_description=open("README.md", encoding="utf8").read(),
     python_requires=">=3, <4",
-    extras_require={
-        "PROD": parse_requirements("requirements.txt")
-    },
+    extras_require={"PROD": parse_requirements("requirements.txt")},
     # Used for whole testing before pip finalized the install
     test_suite="eocrops.tests.suite",
     # Classifiers list used when deploying to PY.org

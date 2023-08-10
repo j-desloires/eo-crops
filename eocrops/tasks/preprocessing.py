@@ -134,6 +134,7 @@ class MaskPixels(EOTask):
 
         return patch
 
+
 class InterpolateFeatures(EOTask):
     def __init__(
         self, resampled_range, features=None, algorithm="linear", copy_features=None

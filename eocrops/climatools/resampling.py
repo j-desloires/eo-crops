@@ -189,7 +189,9 @@ class TempResampling:
                 "The column {0} is not in the meta_file".format(self.id_column)
             )
 
-        self.X = X[self.meta.index,]
+        self.X = X[
+            self.meta.index,
+        ]
 
         self.sat_load = True
 

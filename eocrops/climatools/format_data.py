@@ -66,7 +66,7 @@ class WeatherPostprocess:
         df_agg = df_agg.rename(
             columns={"value": stat + "_value", "location": self.id_column}
         )
-        df_agg = df_agg.sort_values(by = ['timestamp', 'period'])
+        df_agg = df_agg.sort_values(by=["timestamp", "period"])
         return df_agg
 
     def _get_cumulated_period(self, df):
@@ -82,7 +82,7 @@ class WeatherPostprocess:
                 .groupby(["location", "variable", "period", "timestamp"])
                 .sum()
             )
-            df_agg = df_agg.sort_values(by = ['timestamp', 'period'])
+            df_agg = df_agg.sort_values(by=["timestamp", "period"])
             df_agg = df_agg.groupby(level=0).cumsum().reset_index()
             df_agg = df_agg.rename(
                 columns={"value": "cumsum_value", "location": self.id_column}
@@ -109,11 +109,13 @@ class WeatherPostprocess:
 
     def _format_periods(self, periods):
         df_resampled = pd.melt(periods, id_vars="period").rename(
-            columns={"value": "timestamp", "variable": 'key'}
+            columns={"value": "timestamp", "variable": "key"}
         )
 
         # Left join periods to the original dataframe
-        df_resampled["timestamp"] = [np.datetime64(k) for k in df_resampled["timestamp"].values]
+        df_resampled["timestamp"] = [
+            np.datetime64(k) for k in df_resampled["timestamp"].values
+        ]
 
         return df_resampled
 
@@ -151,12 +153,18 @@ class WeatherPostprocess:
         df_resampled = self._format_periods(periods)
 
         copy_input = self.input_file.copy()
-        copy_input['key'] = copy_input[self.timestamp_column].astype(str)
-        df_Meteoblue = pd.merge(df_Meteoblue, copy_input[[self.id_column, 'key']], left_on = 'location', right_on=self.id_column, how = 'left')
+        copy_input["key"] = copy_input[self.timestamp_column].astype(str)
+        df_Meteoblue = pd.merge(
+            df_Meteoblue,
+            copy_input[[self.id_column, "key"]],
+            left_on="location",
+            right_on=self.id_column,
+            how="left",
+        )
 
         df = pd.merge(
-            df_resampled, df_Meteoblue, on=["timestamp", 'key'], how="right"
-        ).drop(['key'], axis = 1)
+            df_resampled, df_Meteoblue, on=["timestamp", "key"], how="right"
+        ).drop(["key"], axis=1)
 
         fill_nas = (
             df[["period", "location"]]
@@ -182,7 +190,7 @@ class WeatherPostprocess:
             return np.datetime64(date)
 
         self.input_file[doy_column] = [
-            _convert_doy_to_date(doy, year[0].split('-')[0])
+            _convert_doy_to_date(doy, year[0].split("-")[0])
             for doy, year in zip(
                 self.input_file[doy_column], self.input_file[self.timestamp_column]
             )
@@ -219,9 +227,9 @@ class WeatherPostprocess:
 
         # Reformat into time series only if it is a dynamic variable
         df, periods_df = self._get_periods(df_Meteoblue_=df.copy())
-        unique_years = df['Year'].unique()
+        unique_years = df["Year"].unique()
 
-        if len(unique_years)>1:
+        if len(unique_years) > 1:
             dates = periods_df["timestamp"].values
             periods_df["period"] = (
                 (dates - dates[0]).astype("timedelta64[D]").astype(int)
@@ -230,7 +238,9 @@ class WeatherPostprocess:
         df["value"] = df["value"].astype("float32")
 
         if self.start_season_column is not None:
-            periods_sowing = self._add_growing_stage(periods_df=periods_df, feature="start_season")
+            periods_sowing = self._add_growing_stage(
+                periods_df=periods_df, feature="start_season"
+            )
             df = pd.merge(
                 df[
                     [
@@ -273,7 +283,7 @@ class WeatherPostprocess:
         df_pivot = df_pivot.rename(
             columns={
                 self.id_column + "--": self.id_column,
-                'Year' + "--": 'Year',
+                "Year" + "--": "Year",
             }
         )
         df_pivot = df_pivot.sort_values(by=[self.id_column]).reset_index(drop=True)
@@ -365,7 +375,6 @@ class WeatherPostprocess:
         pd.DataFrame with mean, min, max, sum aggregated into periods defined w.r.t the resample_range
         """
 
-
         init_weather = self._init_df(df=df_weather.copy())
 
         if stat == "cumsum":
@@ -373,9 +382,7 @@ class WeatherPostprocess:
         else:
             df_stats = self._get_descriptive_period(df=init_weather, stat=stat)
 
-        df_stats = df_stats.sort_values(
-            by=[self.id_column, "timestamp", "variable"]
-        )
+        df_stats = df_stats.sort_values(by=[self.id_column, "timestamp", "variable"])
 
         if not return_pivot:
             return df_stats
