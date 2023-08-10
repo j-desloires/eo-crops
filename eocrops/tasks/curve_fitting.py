@@ -359,23 +359,24 @@ class CurveFitting:
         if weighted:
             w = w * ts_mean / np.max(ts_mean)
 
-        if ts_mean.shape[1] > 1:
-            ts_mean = np.array(
-                [
-                    ws2d(
-                        ts_mean[..., i].flatten().astype("float"),
-                        degree_smoothing,
-                        w[..., i].flatten(),
-                    )
-                    for i in range(ts_mean.shape[1])
-                ]
-            )
-            ts_mean = np.swapaxes(ts_mean, 0, 1)
+        if len(ts_mean.shape)>1:
+            if ts_mean.shape[1] > 1:
+                ts_mean = np.array(
+                    [
+                        ws2d(
+                            ts_mean[..., i].flatten().astype("float"),
+                            degree_smoothing,
+                            w[..., i].flatten(),
+                        )
+                        for i in range(ts_mean.shape[1])
+                    ]
+                )
+                ts_mean = np.swapaxes(ts_mean, 0, 1)
 
-        else:
-            ts_mean = np.array(
-                ws2d(ts_mean.flatten().astype("float"), degree_smoothing, w.flatten())
-            )
+            else:
+                ts_mean = np.array(
+                    ws2d(ts_mean.flatten().astype("float"), degree_smoothing, w.flatten())
+                )
 
         return ts_mean
 
