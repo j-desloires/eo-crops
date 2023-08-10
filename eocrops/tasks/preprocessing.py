@@ -134,10 +134,7 @@ class MaskPixels(EOTask):
 
         return patch
 
-
 class InterpolateFeatures(EOTask):
-    """Interpolate satellite images into new periods using linear or cubic interpolations"""
-
     def __init__(
         self, resampled_range, features=None, algorithm="linear", copy_features=None
     ):
@@ -173,8 +170,9 @@ class InterpolateFeatures(EOTask):
 
         if self.features is None:
             self.features = [
-                (FeatureType.DATA, fname)
-                for fname in eopatch.get_features()[FeatureType.DATA]
+                (ftype, fname)
+                for (ftype, fname) in eopatch.get_features()
+                if ftype == FeatureType.DATA
             ]
 
         dico = {}
@@ -193,5 +191,6 @@ class InterpolateFeatures(EOTask):
         if "CLM" in eopatch.mask.keys():
             remove_feature = RemoveFeatureTask([(FeatureType.MASK, "CLM")])
             remove_feature.execute(eopatch)
+            # eopatch.remove_feature(FeatureType.MASK, "CLM")
 
         return eopatch

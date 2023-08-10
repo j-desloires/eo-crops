@@ -33,7 +33,7 @@ class CurveFitting:
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         threshold=None,
         resampling=None,
     ):
@@ -128,7 +128,7 @@ class CurveFitting:
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         threshold=0.2,
     ):
         """
@@ -383,7 +383,7 @@ class CurveFitting:
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         degree_smoothing=1,
         min_threshold=0,
         max_threshold=None,
@@ -522,7 +522,7 @@ class AsymmetricGaussian(CurveFitting):
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         resampling=0,
         threshold=0,
     ):
@@ -561,7 +561,7 @@ class AsymmetricGaussian(CurveFitting):
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         resampling=0,
     ):
         """
@@ -627,7 +627,7 @@ class DoublyLogistic(CurveFitting):
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         resampling=0,
         threshold=0.2,
     ):
@@ -666,7 +666,7 @@ class DoublyLogistic(CurveFitting):
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         resampling=0,
         threshold=0.2,
     ):
@@ -772,7 +772,7 @@ class FourierDiscrete(CurveFitting):
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         resampling=0,
         fft=True,
         threshold=0.2,
@@ -811,7 +811,7 @@ class FourierDiscrete(CurveFitting):
         self,
         eopatch,
         feature,
-        feature_mask="polygon_mask",
+        feature_mask="MASK",
         resampling=0,
         fft=True,
         threshold=0,
