@@ -11,10 +11,10 @@ build:
       - git fetch origin
 
     # Uncomment to debug
-     pre_install:
-       - pip install -U pip
-       - pip install setuptools>=45 setuptools_scm[toml]>=6.2
-       - SETUPTOOLS_SCM_DEBUG=1 python -m setuptools_scm
+    pre_install:
+      - pip install -U pip
+      - pip install setuptools>=45 setuptools_scm[toml]>=6.2
+      - SETUPTOOLS_SCM_DEBUG=1 python -m setuptools_scm
 
 # Build from the docs/ directory with Sphinx
 sphinx:
