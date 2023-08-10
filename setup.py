@@ -23,8 +23,7 @@ setuptools.setup(
     packages=[
         "eocrops",
         "eocrops.inputs",
-        "eocrops.tasks.base_experiments",
-        "eocrops.utils.base_models",
+        "eocrops.tasks",
         "eocrops.climatools",
     ],
     url="https://github.com/j-desloires/eo-crops",
