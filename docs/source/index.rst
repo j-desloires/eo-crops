@@ -9,13 +9,16 @@ Welcome to EOcrops's documentation!
 .. role:: raw-html(raw)
     :format: html
 
-EOCrops gives you an easy way to access products at the field-level from different providers (internal and third-party)
-to download satellite images (Sentinel 1, Sentinel 2, Sentinel 3, Landsat, etc.) that can be searched and downloaded.
+EOCrops gives you an easy way to access products at the field-level from different providers
+to download satellite images (Sentinel 1 and Sentinel 2) and agroclimatic data.
 
 EOCrops has the following primary features:
 
 * Download Earth Observation data from SentinelHub  `SentinelHub API <eocrops/examples/Sentinel data.ipynb>`_
 * Download VHRS data from `third party mission <eocrops/VHRS data.ipynb>`_
+* Download weather data from `third party mission <eocrops/Weather data.ipynb>`_
+* Thermal time resampling `third party mission <eocrops/Thermal time.ipynb>`_
+
 * Advanced features for vegetation monitoring (vegetation indices, biophysical parameters, spatiotemporal features, ...)
 * End-user features (thermal time, feature engineering, ...)
 

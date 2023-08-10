@@ -12,7 +12,7 @@ https://eo-crops.readthedocs.io/en/latest/
 </div>
 
 A small python module that brings together the features of SentinelHub, the eo-learn python library and OrfeoToolBox for basic downloading and processing of Earth observation data for crop monitoring. 
-SentinelHub account can be sponsored by the [ESA Network-of-Resources (NoR) program](https://nor-discover.cloudeo.group/Service/EDC-Sentinel-Hub/SponsoringWizardPricelist).
+SentinelHub account can be sponsored by the [ESA Network-of-Resources (NoR) program](https://nor-discover.cloudeo.group/Service/EDC-Sentinel-Hub/SponsoringWizardPricelist). For weather data, you need to have the [meteoblue API](https://www.meteoblue.com/fr/weather-api/dataset-api/index) 
 
 The documentation is available on this [link](https://eo-crops.readthedocs.io/en/latest/)
 
