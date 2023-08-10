@@ -10,6 +10,7 @@ class WeatherPostprocess:
         self,
         shapefile,
         id_column,
+        year_column,
         resample_range=("-01-01", "-12-31", 1),
         start_season=None,
     ):
@@ -35,7 +36,7 @@ class WeatherPostprocess:
 
         self.resample_range = resample_range
         self.input_file = shapefile.copy()
-        self.year_column = "Year"
+        self.year_column = year_column
         if self.start_season_column is not None:
             if self.start_season_column not in list(shapefile.columns):
                 raise ValueError(

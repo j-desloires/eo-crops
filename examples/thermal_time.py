@@ -153,6 +153,7 @@ weather_data = pd.read_csv(f"{PATH_EXPERIMENT}/GDD_data.csv")
 pipeline_refactor = WeatherPostprocess(
     shapefile=meta_data,
     id_column="ID",
+    year_column='Year',
     resample_range=(
         TIME_INTERVAL[0],
         TIME_INTERVAL[1],
