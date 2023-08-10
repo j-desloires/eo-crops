@@ -15,10 +15,8 @@ to download satellite images (Sentinel 1 and Sentinel 2) and agroclimatic data.
 EOCrops has the following primary features:
 
 * Download Earth Observation data from SentinelHub  `SentinelHub API <eocrops/examples/Sentinel\\ data.ipynb>`_
-* Download VHRS data from `third party mission <eocrops/examples/VHRS\\ data.ipynb>`_
-* Download weather data from `third party mission <eocrops/examples/Weather\\ data.ipynb>`_
-* Thermal time resampling `third party mission <eocrops/examples/Thermal\\ time.ipynb>`_
-
+* Download VHRS data from `VHRS data <eocrops/examples/VHRS\\ data.ipynb>`_
+* Download weather data from `Meteoblue <eocrops/examples/Weather\\ data.ipynb>`_
 * Advanced features for vegetation monitoring (vegetation indices, biophysical parameters, spatiotemporal features, ...)
 * End-user features (thermal time, feature engineering, ...)
 
