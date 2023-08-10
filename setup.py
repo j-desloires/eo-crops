@@ -25,6 +25,7 @@ setuptools.setup(
         "eocrops.inputs",
         "eocrops.tasks",
         "eocrops.climatools",
+        "eocrops.utils",
     ],
     url="https://github.com/j-desloires/eo-crops",
     author="Johann Desloires",
