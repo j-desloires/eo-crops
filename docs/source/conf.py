@@ -18,8 +18,11 @@ import shutil
 import sys
 
 import sys
+sys.path.insert(0, os.path.abspath('../../'))
 
-sys.path.insert(0, '../../eocrops')
+print("Python Version:", sys.version)
+print("sys.path:", sys.path)
+
 
 import eocrops
 from collections import defaultdict
