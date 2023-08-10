@@ -17,7 +17,9 @@ import pathlib
 import shutil
 import sys
 
-# sys.path.insert(0, os.path.abspath('.'))
+import sys
+
+sys.path.insert(0, '../../eocrops')
 
 import eocrops
 from collections import defaultdict

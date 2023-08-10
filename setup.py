@@ -4,20 +4,6 @@ from setuptools import setup, find_packages
 
 def parse_requirements(file):
     return sorted(
-        set(
-            line.partition("#")[0].strip()
-            for line in open(os.path.join(os.path.dirname(__file__), file))
-        )
-        - set("")
-    )
-
-
-import setuptools
-import os
-
-
-def parse_requirements(file):
-    return sorted(
         (
             {
                 line.partition("#")[0].strip()
@@ -33,7 +19,7 @@ with open("requirements.txt") as f:
 
 setuptools.setup(
     name="eocrops",
-    version="2.0.0",
+    version="1.0.0",
     packages=[
         "eocrops",
         "eocrops.inputs",
@@ -47,8 +33,7 @@ setuptools.setup(
     long_description=open("README.md", encoding="utf8").read(),
     python_requires=">=3, <4",
     extras_require={
-        "PROD": parse_requirements("requirements.txt"),
-        "DEV": parse_requirements("requirements-doc.txt"),
+        "PROD": parse_requirements("requirements.txt")
     },
     # Used for whole testing before pip finalized the install
     test_suite="eocrops.tests.suite",
