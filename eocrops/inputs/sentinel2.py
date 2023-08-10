@@ -1,4 +1,5 @@
 import os
+import eolearn
 import multiprocessing
 
 from eolearn.core import (
@@ -9,6 +10,7 @@ from eolearn.core import (
     OutputTask,
 )
 
+import datetime
 from sentinelhub import DataCollection
 from eolearn.io import SentinelHubDemTask, SentinelHubEvalscriptTask
 from eolearn.core import OverwritePermission
