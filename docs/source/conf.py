@@ -285,7 +285,7 @@ copy_documentation_examples(
 )
 
 shutil.copyfile("../../README.md", os.path.join(MARKDOWNS_FOLDER, "README.md"))
-shutil.rmtree("docs/figures", ignore_errors=True)
+shutil.rmtree(os.path.join(MARKDOWNS_FOLDER, "docs/figures"), ignore_errors=True)
 shutil.copytree("../../docs/figures", os.path.join(MARKDOWNS_FOLDER, "docs/figures"))
 
 
