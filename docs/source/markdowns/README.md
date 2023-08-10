@@ -12,13 +12,13 @@ https://eo-crops.readthedocs.io/en/latest/
 </div>
 
 A small python module that brings together the features of SentinelHub, the eo-learn python library and OrfeoToolBox for basic downloading and processing of Earth observation data for crop monitoring. 
-SentinelHub account can be sponsored by the [ESA Network-of-Resources (NoR) program](https://nor-discover.cloudeo.group/Service/EDC-Sentinel-Hub/SponsoringWizardPricelist).
+SentinelHub account can be sponsored by the [ESA Network-of-Resources (NoR) program](https://nor-discover.cloudeo.group/Service/EDC-Sentinel-Hub/SponsoringWizardPricelist). For weather data, you need to have the [meteoblue API](https://www.meteoblue.com/fr/weather-api/dataset-api/index) 
 
 The documentation is available on this [link](https://eo-crops.readthedocs.io/en/latest/)
 
 # Installation
 
-⚠ **On Windows, you need to have C++ using [vs_BuildTools.exe](https://download.visualstudio.microsoft.com/download/pr/07db0e25-01f0-4ac0-946d-e03196d2cc8b/52b77ee7cb5f8e021461456006979d22bbd24d9e2d342f9a5d284567320979e1/vs_BuildTools.exe) installed for making geospatial libraries working** ⚠
+⚠ On Windows, you need to have C++ using [vs_BuildTools.exe](https://download.visualstudio.microsoft.com/download/pr/07db0e25-01f0-4ac0-946d-e03196d2cc8b/52b77ee7cb5f8e021461456006979d22bbd24d9e2d342f9a5d284567320979e1/vs_BuildTools.exe) installed for making geospatial libraries working ⚠
 
 To install the package, you must first clone the git repository to the desired folder
 

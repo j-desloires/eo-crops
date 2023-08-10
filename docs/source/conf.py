@@ -285,6 +285,7 @@ copy_documentation_examples(
 )
 
 shutil.copyfile("../../README.md", os.path.join(MARKDOWNS_FOLDER, "README.md"))
+shutil.copytree("../../docs/figures", os.path.join(MARKDOWNS_FOLDER, "docs/figures"))
 
 
 # Auto-generate documentation pages
