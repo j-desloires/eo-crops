@@ -158,6 +158,9 @@ class BiophysicalParameters:
         )
 
     def apply_normalize(self):
+        
+        #https://github.com/senbox-org/s2tbx/blob/master/s2tbx-biophysical/src/main/resources/auxdata/2_1/FCOVER/FCOVER_Normalisation
+        
         self.b03_norm = self._normalize(self.B03, 0, 0.253061520471542)
         self.b04_norm = self._normalize(self.B04, 0, 0.290393577911328)
         self.b05_norm = self._normalize(self.B05, 0, 0.305398915248555)
@@ -186,8 +189,8 @@ class BiophysicalParameters:
         """Define biophysical vegetation index Leaf Area Index, computed from a trained neural network which has as inputs the metadata of sentinel2 images"""
 
         n1 = self._neuron(
-            4.96238030555279,
-            -0.023406878966470,
+            4.96238030555279, #bias of neuron 1 https://github.com/senbox-org/s2tbx/blob/master/s2tbx-biophysical/src/main/resources/auxdata/2_1/LAI/LAI_Weights_Layer1_Bias
+            -0.023406878966470, # neuron https://github.com/senbox-org/s2tbx/blob/master/s2tbx-biophysical/src/main/resources/auxdata/2_1/LAI/LAI_Weights_Layer1_Neurons
             +0.921655164636366,
             0.135576544080099,
             -1.938331472397950,
